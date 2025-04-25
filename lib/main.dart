@@ -67,111 +67,118 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // Função para exibir o diálogo de cadastro
-  Future<void> showRegisterDialog() async {
-    // Controladores para cadastro
-    final nameController = TextEditingController();
-    final registerEmailController = TextEditingController();
-    final registerPasswordController = TextEditingController();
+  // Função para exibir o diálogo de cadastro
+Future<void> showRegisterDialog() async {
+  final nameController = TextEditingController();
+  final registerEmailController = TextEditingController();
+  final registerPasswordController = TextEditingController();
 
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF174033),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        title: const Text(
-          'Cadastrar',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Campo de Nome
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Nome',
-                  labelStyle: TextStyle(color: Colors.white),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
+  await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: const Color(0xFF174033),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      title: const Text(
+        'Cadastrar',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Campo de Nome
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Nome',
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
                 ),
               ),
-              // Campo de E-mail
-              TextField(
-                controller: registerEmailController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'E-mail',
-                  labelStyle: TextStyle(color: Colors.white),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
+            ),
+            // Campo de E-mail
+            TextField(
+              controller: registerEmailController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
                 ),
               ),
-              // Campo de Senha
-              TextField(
-                controller: registerPasswordController,
-                obscureText: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Senha',
-                  labelStyle: TextStyle(color: Colors.white),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
+            ),
+            // Campo de Senha
+            TextField(
+              controller: registerPasswordController,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Senha',
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          // Botão para cadastrar
-          TextButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final email = registerEmailController.text.trim();
-              final password = registerPasswordController.text.trim();
+      ),
+      actions: [
+        // Botão para cadastrar
+        TextButton(
+          onPressed: () async {
+            final name = nameController.text.trim();
+            final email = registerEmailController.text.trim();
+            final password = registerPasswordController.text.trim();
+            final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@aluno\.unicv\.edu\.br$');
 
-              try {
-                // Aqui usamos a função de cadastro do SupabaseService
-                final response = await supabaseService.signUp(email, password);
-                if (response.user != null) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cadastro realizado com sucesso')),
-                  );
-                  // Se desejar, grave o nome do usuário em metadata ou outra tabela
-                }
-              } on AuthException catch (e) {
+            if (!emailRegex.hasMatch(email)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Use um e-mail institucional válido (@aluno.unicv.edu.br)')),
+              );
+              return;
+            }
+
+            try {
+              final response = await supabaseService.signUp(email, password);
+              if (response.user != null) {
+                Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Erro: ${e.message}')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Erro inesperado: $e')),
+                  const SnackBar(content: Text('Cadastro realizado com sucesso. Verifique seu e-mail.')),
                 );
               }
-            },
-            child: const Text(
-              'Cadastrar',
-              style: TextStyle(color: Colors.white),
-            ),
+            } on AuthException catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erro: ${e.message}')),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erro inesperado: $e')),
+              );
+            }
+          },
+          child: const Text(
+            'Cadastrar',
+            style: TextStyle(color: Colors.white),
           ),
-          // Botão para cancelar
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.white),
-            ),
+        ),
+        // Botão para cancelar
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Cancelar',
+            style: TextStyle(color: Colors.white),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 
   @override
   void dispose() {
