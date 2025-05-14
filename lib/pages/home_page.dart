@@ -16,8 +16,8 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
-    TurmasPage(),
     EnsalamentoPage(),
+    TurmasPage(),
     SalasPage(),
     ProfessoresPage(),
   ];
@@ -29,24 +29,10 @@ class _HomePageState extends State<HomePage> {
       drawer: AppDrawer(
         selectedIndex: _selectedIndex,
         onItemSelected: (index) {
-          setState(() => _selectedIndex = index);
-          Navigator.pop(context); // Fecha o drawer após selecionar
-          
-          // Navegação corrigida para não substituir a pilha
-          switch (index) {
-            case 0:
-              Navigator.pushNamed(context, '/ensalamento');
-              break;
-            case 1:
-              Navigator.pushNamed(context, '/turmas');
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/salas');
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/professores');
-              break;
-          }
+          setState(() {
+            _selectedIndex = index;
+          });
+          Navigator.pop(context); // Fecha o drawer após seleção
         },
       ),
       body: _pages[_selectedIndex],
