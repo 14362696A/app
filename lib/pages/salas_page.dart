@@ -191,7 +191,7 @@ class _SalasPageState extends State<SalasPage> {
     final cadeirasCtrl = TextEditingController();
     final cadeirasPcdCtrl = TextEditingController();
     final pcsCtrl = TextEditingController();
-    
+
     String? blocoSelecionado = 'Bloco C'; // valor inicial
 
     showDialog(
@@ -379,200 +379,202 @@ class _SalasPageState extends State<SalasPage> {
       return const Center(child: Text('Nenhuma sala encontrada.'));
     }
 
-  final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.of(context).size.width;
 
-  final crossAxisCount = screenWidth < 600
-      ? 1
-      : screenWidth < 1200
-          ? 2
-          : screenWidth < 1400
-              ? 3
-              : screenWidth < 1600
-                  ? 4
-                  : 5;
-  return GridView.builder(
-    padding: const EdgeInsets.all(8),
-    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: crossAxisCount,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 3 / 2.3, // ou até 3 / 2.5 se necessário
-    ),
-    
-    itemCount: salas.length,
-    itemBuilder: (_, index) {
-      final sala = salas[index];
-      return Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-child: Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Center(
-      child: Text(
-        sala.nome,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-        textAlign: TextAlign.center,
+    final crossAxisCount = screenWidth < 600
+        ? 1
+        : screenWidth < 1200
+            ? 2
+            : screenWidth < 1400
+                ? 3
+                : screenWidth < 1600
+                    ? 4
+                    : 5;
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 3 / 2.3, // ou até 3 / 2.5 se necessário
       ),
-    ),
-    const SizedBox(height: 8),
+      itemCount: salas.length,
+      itemBuilder: (_, index) {
+        final sala = salas[index];
+        return Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        sala.nome,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Divider(height: 16, thickness: 1),
+                    ],
+                  ),
+                ),
 
-    // Status
-    Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          sala.ativa ? Icons.check_circle : Icons.cancel,
-          size: 18,
-          color: sala.ativa ? Colors.green : Colors.red,
-        ),
-        const SizedBox(width: 6),
-        Text('Status: ${sala.ativa ? 'Ativa' : 'Inativa'}'),
-      ],
-    ),
-    const SizedBox(height: 8),
+                // Status
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      sala.ativa ? Icons.check_circle : Icons.cancel,
+                      size: 18,
+                      color: sala.ativa ? Colors.green : Colors.red,
+                    ),
+                    const SizedBox(width: 6),
+                    Text('Status: ${sala.ativa ? 'Ativa' : 'Inativa'}'),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
-    // Cadeiras, Cadeiras PCD e PCs
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.event_seat, size: 18, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text('Cadeiras: ${sala.cadeiras}'),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.accessible, size: 18, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text('Cadeiras PCD: ${sala.cadeirasPcd}'),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.computer, size: 18, color: Colors.grey),
-            const SizedBox(width: 6),
-            Text('PCs: ${sala.computadores}'),
-          ],
-        ),
-      ],
-    ),
-    const SizedBox(height: 8),
+                // Cadeiras, Cadeiras PCD e PCs
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 6),
+                        Text('Cadeiras: ${sala.cadeiras}'),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 6),
+                        Text('Cadeiras PCD: ${sala.cadeirasPcd}'),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 6),
+                        Text('PCs: ${sala.computadores}'),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
-    // Equipamentos lado a lado
-    Wrap(
-      spacing: 16,
-      runSpacing: 4,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              sala.arCondicionado ? Icons.ac_unit : Icons.ac_unit_outlined,
-              size: 18,
-              color: sala.arCondicionado ? Colors.blue : Colors.grey,
+                // Equipamentos lado a lado
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          sala.arCondicionado
+                              ? Icons.ac_unit
+                              : Icons.ac_unit_outlined,
+                          size: 18,
+                          color:
+                              sala.arCondicionado ? Colors.blue : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text('Ar-condicionado'),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          sala.tv ? Icons.tv : Icons.tv_outlined,
+                          size: 18,
+                          color: sala.tv ? Colors.blue : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text('TV'),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          sala.projetor ? Icons.videocam : Icons.videocam_off,
+                          size: 18,
+                          color: sala.projetor ? Colors.blue : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text('Projetor'),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const Spacer(), // <- empurra os botões para baixo
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: () => abrirFormularioEdicao(sala),
+                      tooltip: 'Editar',
+                      iconSize: 24,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => confirmarExclusao(sala),
+                      tooltip: 'Excluir',
+                      iconSize: 24,
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            const Text('Ar-condicionado'),
-          ],
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              sala.tv ? Icons.tv : Icons.tv_outlined,
-              size: 18,
-              color: sala.tv ? Colors.blue : Colors.grey,
-            ),
-            const SizedBox(width: 4),
-            const Text('TV'),
-          ],
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              sala.projetor ? Icons.videocam : Icons.videocam_off,
-              size: 18,
-              color: sala.projetor ? Colors.blue : Colors.grey,
-            ),
-            const SizedBox(width: 4),
-            const Text('Projetor'),
-          ],
-        ),
-      ],
-    ),
+          ),
+        );
+      },
+    );
+  }
 
-    const Spacer(), // <- empurra os botões para baixo
-
-    Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+  Widget buildSpeedDial() {
+    return SpeedDial(
+      icon: Icons.menu,
+      activeIcon: Icons.close,
+      overlayOpacity: 0.4,
+      backgroundColor: Colors.blue,
       children: [
-        IconButton(
-          icon: const Icon(Icons.edit, color: Colors.blue),
-          onPressed: () => abrirFormularioEdicao(sala),
-          tooltip: 'Editar',
-          iconSize: 24,
+        SpeedDialChild(
+          child: const Icon(Icons.add),
+          label: 'Criar Sala',
+          onTap: abrirFormularioCriacao,
         ),
-        IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: () => confirmarExclusao(sala),
-          tooltip: 'Excluir',
-          iconSize: 24,
+        SpeedDialChild(
+          child: const Icon(Icons.refresh),
+          label: 'Atualizar',
+          onTap: carregarSalas,
         ),
       ],
-    ),
-  ],
-),
+    );
+  }
 
-        ),
-      );
-    },
-  );
-}
-
-Widget buildSpeedDial() {
-  return SpeedDial(
-    icon: Icons.menu,
-    activeIcon: Icons.close,
-    overlayOpacity: 0.4,
-    backgroundColor: Colors.blue,
-    children: [
-      SpeedDialChild(
-        child: const Icon(Icons.add),
-        label: 'Criar Sala',
-        onTap: abrirFormularioCriacao,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Salas'),
+        actions: [buildFiltro()],
       ),
-      SpeedDialChild(
-        child: const Icon(Icons.refresh),
-        label: 'Atualizar',
-        onTap: carregarSalas,
-      ),
-    ],
-  );
-}
-
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text('Salas'),
-      actions: [buildFiltro()],
-    ),
-    body: buildListaSalas(),
-    floatingActionButton: buildSpeedDial(),
-  );
-}
+      body: buildListaSalas(),
+      floatingActionButton: buildSpeedDial(),
+    );
+  }
 }

@@ -46,10 +46,11 @@ class _TurmasPageState extends State<TurmasPage> {
 
   void abrirFormularioEdicao(Turma turma) {
     final formKey = GlobalKey<FormState>();
-    final nomeCursoCtrl = TextEditingController(text: turma.nomeDoCurso);
+    final nomeDoCursoCtrl = TextEditingController(text: turma.nomeDoCurso);
     final turnoCtrl = TextEditingController(text: turma.turno);
     final semestreCtrl = TextEditingController(text: turma.semestre.toString());
-    final qtdAlunosCtrl = TextEditingController(text: turma.qtdDeAlunos.toString());
+    final qtdAlunosCtrl =
+        TextEditingController(text: turma.qtdDeAlunos.toString());
     final observacoesCtrl = TextEditingController(text: turma.observacoes);
 
     showDialog(
@@ -63,9 +64,10 @@ class _TurmasPageState extends State<TurmasPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
-                  controller: nomeCursoCtrl,
+                  controller: nomeDoCursoCtrl,
                   decoration: const InputDecoration(labelText: 'Nome do Curso'),
-                  validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Informe o nome' : null,
                 ),
                 TextField(
                   controller: turnoCtrl,
@@ -78,7 +80,8 @@ class _TurmasPageState extends State<TurmasPage> {
                 TextFormField(
                   controller: qtdAlunosCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Quantidade de Alunos'),
+                  decoration:
+                      const InputDecoration(labelText: 'Quantidade de Alunos'),
                 ),
                 TextFormField(
                   controller: observacoesCtrl,
@@ -97,14 +100,14 @@ class _TurmasPageState extends State<TurmasPage> {
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState?.validate() ?? false) {
-            final turmaEditada = Turma(
-              id: turma.id,
-              nomeDoCurso: nomeCursoCtrl.text.trim(),
-              turno: turnoCtrl.text.trim(),
-              semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
-              qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text.trim()) ?? 0,
-              observacoes: observacoesCtrl.text.trim(),
-            );
+                final turmaEditada = Turma(
+                  id: turma.id,
+                  nomeDoCurso: nomeDoCursoCtrl.text.trim(),
+                  turno: turnoCtrl.text.trim(),
+                  semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
+                  qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text.trim()) ?? 0,
+                  observacoes: observacoesCtrl.text.trim(),
+                );
 
                 await turmaRepository.salvarTurma(turmaEditada);
                 Navigator.pop(context);
@@ -124,100 +127,105 @@ class _TurmasPageState extends State<TurmasPage> {
 
   void abrirFormularioCriacao() {
     final formKey = GlobalKey<FormState>();
-    final nomeCursoCtrl = TextEditingController();
+    final nomeDoCursoCtrl = TextEditingController();
     final semestreCtrl = TextEditingController();
     final qtdAlunosCtrl = TextEditingController();
     final observacoesCtrl = TextEditingController();
 
-showDialog(
-  context: context,
-  builder: (_) => AlertDialog(
-    title: const Text('Criar nova Turma'),
-    content: Form(
-      key: formKey,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: nomeCursoCtrl,
-              decoration: const InputDecoration(labelText: 'Nome do Curso'),
-              validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
-            ),
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Criar nova Turma'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nomeDoCursoCtrl,
+                  decoration: const InputDecoration(labelText: 'Nome do Curso'),
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Informe o nome' : null,
+                ),
 
-            // Dropdown de Turno
-            DropdownButtonFormField<String>(
-              value: turnoSelecionado,
-              decoration: const InputDecoration(labelText: 'Turno'),
-              items: ['Matutino', 'Vespertino', 'Noturno']
-                  .map((turno) => DropdownMenuItem(
-                        value: turno,
-                        child: Text(turno),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => turnoSelecionado = value);
-                }
-              },
-              validator: (v) => v == null || v.isEmpty ? 'Selecione um turno' : null,
-            ),
+                // Dropdown de Turno
+                DropdownButtonFormField<String>(
+                  value: turnoSelecionado,
+                  decoration: const InputDecoration(labelText: 'Turno'),
+                  items: ['Matutino', 'Vespertino', 'Noturno']
+                      .map((turno) => DropdownMenuItem(
+                            value: turno,
+                            child: Text(turno),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => turnoSelecionado = value);
+                    }
+                  },
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Selecione um turno' : null,
+                ),
 
-            TextFormField(
-              controller: semestreCtrl,
-              decoration: const InputDecoration(labelText: 'Semestre'),
-              keyboardType: TextInputType.number,
-              validator: (v) => v == null || v.isEmpty ? 'Informe o semestre' : null,
-            ),
+                TextFormField(
+                  controller: semestreCtrl,
+                  decoration: const InputDecoration(labelText: 'Semestre'),
+                  keyboardType: TextInputType.number,
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Informe o semestre' : null,
+                ),
 
-            TextFormField(
-              controller: qtdAlunosCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Quantidade de Alunos'),
-              validator: (v) => v == null || v.isEmpty ? 'Informe a quantidade de alunos' : null,
-            ),
+                TextFormField(
+                  controller: qtdAlunosCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration:
+                      const InputDecoration(labelText: 'Quantidade de Alunos'),
+                  validator: (v) => v == null || v.isEmpty
+                      ? 'Informe a quantidade de alunos'
+                      : null,
+                ),
 
-            TextFormField(
-              controller: observacoesCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Observações'),
+                TextFormField(
+                  controller: observacoesCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Observações'),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancelar'),
-      ),
-      ElevatedButton(
-        onPressed: () async {
-          if (formKey.currentState?.validate() ?? false) {
-            final novaTurma = Turma(
-              id: uuid.v4(),
-              nomeDoCurso: nomeCursoCtrl.text.trim(),
-              turno: turnoSelecionado,
-              semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
-              qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text) ?? 0,
-              observacoes: observacoesCtrl.text.trim(),
-            );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+                final novaTurma = Turma(
+                  id: uuid.v4(),
+                  nomeDoCurso: nomeDoCursoCtrl.text.trim(),
+                  turno: turnoSelecionado,
+                  semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
+                  qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text) ?? 0,
+                  observacoes: observacoesCtrl.text.trim(),
+                );
 
-            await turmaRepository.salvarTurma(novaTurma);
-            Navigator.pop(context);
-            carregarTurmas();
+                await turmaRepository.salvarTurma(novaTurma);
+                Navigator.pop(context);
+                carregarTurmas();
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Turma criada com sucesso')),
-            );
-          }
-        },
-        child: const Text('Criar'),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Turma criada com sucesso')),
+                );
+              }
+            },
+            child: const Text('Criar'),
+          ),
+        ],
       ),
-    ],
-  ),
-);
-
+    );
   }
 
   void confirmarExclusao(Turma turma) {
@@ -248,74 +256,100 @@ showDialog(
     );
   }
 
-Widget buildListaTurmas(List<Turma> lista) {
-  if (isLoading) {
-    return const Center(child: CircularProgressIndicator());
-  }
+  Widget buildListaTurmas(List<Turma> lista) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  if (lista.isEmpty) {
-    return const Center(child: Text('Nenhuma turma cadastrada.'));
-  }
+    if (lista.isEmpty) {
+      return const Center(child: Text('Nenhuma turma cadastrada.'));
+    }
 
-  return GridView.builder(
-    padding: const EdgeInsets.all(8),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 5,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 3 / 2,
-    ),
-    itemCount: lista.length,
-    itemBuilder: (_, index) {
-      final turma = lista[index];
-      return Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Text(
-                  turma.nomeDoCurso,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    final crossAxisCount = screenWidth < 600
+        ? 1
+        : screenWidth < 1200
+            ? 2
+            : screenWidth < 1400
+                ? 3
+                : screenWidth < 1600
+                    ? 4
+                    : 5;
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 3 / 2.3,
+      ),
+      itemCount: lista.length,
+      itemBuilder: (_, index) {
+        final turma = lista[index];
+        return Card(
+          elevation: 4,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    '${turma.nomeDoCurso} - ${turma.semestre}º Período',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black, // cor normal
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text('Turno: ${turma.turno}'),
-              Text('Semestre: ${turma.semestre}'),
-              Text('Alunos: ${turma.qtdDeAlunos}'),
-              if (turma.observacoes.isNotEmpty)
-                Text(
-                  'Obs: ${turma.observacoes}',
-                  style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                const Divider(height: 16, thickness: 1),
+                Text('Turno: ${turma.turno}',
+                    style: const TextStyle(fontSize: 14)),
+                Text('Semestre: ${turma.semestre}',
+                    style: const TextStyle(fontSize: 14)),
+                Text('Alunos: ${turma.qtdDeAlunos}',
+                    style: const TextStyle(fontSize: 14)),
+                if (turma.observacoes.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Obs: ${turma.observacoes}',
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: () => abrirFormularioEdicao(turma),
+                      tooltip: 'Editar',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => confirmarExclusao(turma),
+                      tooltip: 'Excluir',
+                    ),
+                  ],
                 ),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => abrirFormularioEdicao(turma),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => confirmarExclusao(turma),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Widget buildSpeedDial() {
     return SpeedDial(
@@ -338,89 +372,49 @@ Widget buildListaTurmas(List<Turma> lista) {
     );
   }
 
-@override
-Widget build(BuildContext context) {
-  final turmasFiltradas = turnoSelecionado == 'Todos'
-      ? turmas
-      : turmas.where((t) => t.turno == turnoSelecionado).toList();
+  @override
+  Widget build(BuildContext context) {
+    final turmasFiltradas = turnoSelecionado == 'Todos'
+        ? turmas
+        : turmas.where((t) => t.turno == turnoSelecionado).toList();
 
-  return Scaffold(
-    appBar: PreferredSize(
-      preferredSize: const Size.fromHeight(60),
-      child: AppBar(
-        titleSpacing: 16,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Turmas'),
-            DropdownButton<String>(
-              value: turnoSelecionado,
-              underline: const SizedBox(),
-              onChanged: (String? novoTurno) {
-                if (novoTurno != null) {
-                  setState(() {
-                    turnoSelecionado = novoTurno;
-                  });
-                }
-              },
-              items: turnos.map((turno) {
-                return DropdownMenuItem<String>(
-                  value: turno,
-                  child: Text(turno),
-                );
-              }).toList(),
-            ),
-          ],
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: AppBar(
+          titleSpacing: 16,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Turmas'),
+              DropdownButton<String>(
+                value: turnoSelecionado,
+                underline: const SizedBox(),
+                onChanged: (String? novoTurno) {
+                  if (novoTurno != null) {
+                    setState(() {
+                      turnoSelecionado = novoTurno;
+                    });
+                  }
+                },
+                items: turnos.map((turno) {
+                  return DropdownMenuItem<String>(
+                    value: turno,
+                    child: Text(turno),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-    body: isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : turmasFiltradas.isEmpty
-            ? const Center(child: Text('Nenhuma turma cadastrada.'))
-            : ListView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: turmasFiltradas.length,
-                itemBuilder: (_, index) {
-                  final turma = turmasFiltradas[index];
-                  return Card(
-                    elevation: 3,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      title: Text(
-                        turma.nomeDoCurso,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Turno: ${turma.turno} | Semestre: ${turma.semestre}'),
-                          Text('Alunos: ${turma.qtdDeAlunos}'),
-                          if (turma.observacoes.isNotEmpty)
-                            Text(
-                              'Obs: ${turma.observacoes}',
-                              style: const TextStyle(fontStyle: FontStyle.italic),
-                            ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () => abrirFormularioEdicao(turma),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => confirmarExclusao(turma),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-    floatingActionButton: buildSpeedDial(),
-  );
-}
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : turmasFiltradas.isEmpty
+              ? const Center(child: Text('Nenhuma turma cadastrada.'))
+              : buildListaTurmas(
+                  turmasFiltradas), // <<< AQUI É O NOVO MÉTODO COM GRID
+      floatingActionButton: buildSpeedDial(),
+    );
+  }
 }

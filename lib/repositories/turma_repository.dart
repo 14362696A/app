@@ -31,7 +31,8 @@ class TurmaRepository {
         'nomeDoCurso': turma.nomeDoCurso,
         'turno': turma.turno,
         'semestre': turma.semestre,
-        'qtdDeAlunos': turma.qtdDeAlunos.toString(), // Convertendo int para String
+        'qtdDeAlunos':
+            turma.qtdDeAlunos.toString(), // Convertendo int para String
         'observacoes': turma.observacoes,
       };
 
@@ -54,11 +55,8 @@ class TurmaRepository {
 
   Future<void> excluirTurma(String id) async {
     try {
-      final response = await supabase
-          .from('turmas')
-          .delete()
-          .eq('id', id)
-          .execute();
+      final response =
+          await supabase.from('turmas').delete().eq('id', id).execute();
 
       if (response.status != 200 && response.status != 204) {
         throw Exception('Erro ao excluir turma: status ${response.status}');

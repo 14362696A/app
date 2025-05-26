@@ -36,7 +36,7 @@ class Turma {
   factory Turma.fromMap(Map<String, dynamic> map) {
     return Turma(
       id: map['id'] ?? '',
-      nomeDoCurso: map['nomedocurso'] ?? '',
+      nomeDoCurso: map['nomeDoCurso'] ?? '',
       turno: map['turno'] ?? '',
       semestre: map['semestre'] is int
           ? map['semestre']

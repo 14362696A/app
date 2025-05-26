@@ -1,5 +1,5 @@
 class Sala {
-  final String id; 
+  final String id;
   final String nome;
   final String bloco;
   final bool ativa;
@@ -11,7 +11,7 @@ class Sala {
   final int computadores;
 
   Sala({
-    required this.id, 
+    required this.id,
     required this.nome,
     required this.bloco,
     required this.ativa,
@@ -51,22 +51,28 @@ class Sala {
 
   factory Sala.fromMap(Map<String, dynamic> map) {
     return Sala(
-      id: map['id'], 
+      id: map['id'],
       nome: map['nome'] ?? '',
       bloco: map['bloco'] ?? '',
       ativa: map['ativa'] ?? false,
       arCondicionado: map['ar_condicionado'] ?? false,
       tv: map['tv'] ?? false,
       projetor: map['projetor'] ?? false,
-      cadeiras: map['cadeiras'] is int ? map['cadeiras'] : int.tryParse(map['cadeiras'].toString()) ?? 0,
-      cadeirasPcd: map['cadeiras_pcd'] is int ? map['cadeiras_pcd'] : int.tryParse(map['cadeiras_pcd'].toString()) ?? 0,
-      computadores: map['computadores'] is int ? map['computadores'] : int.tryParse(map['computadores'].toString()) ?? 0,
+      cadeiras: map['cadeiras'] is int
+          ? map['cadeiras']
+          : int.tryParse(map['cadeiras'].toString()) ?? 0,
+      cadeirasPcd: map['cadeiras_pcd'] is int
+          ? map['cadeiras_pcd']
+          : int.tryParse(map['cadeiras_pcd'].toString()) ?? 0,
+      computadores: map['computadores'] is int
+          ? map['computadores']
+          : int.tryParse(map['computadores'].toString()) ?? 0,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id, 
+      'id': id,
       'nome': nome,
       'bloco': bloco,
       'ativa': ativa,
