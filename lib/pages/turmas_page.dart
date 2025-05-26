@@ -1,34 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-class Turma {
-  final int id;
-  final String nomeDoCurso;
-  final String periodo;
-  final int qtdDeAlunos;
-  final String semestre;
-  final String observacoes;
-
-  Turma({
-    required this.id,
-    required this.nomeDoCurso,
-    required this.periodo,
-    required this.qtdDeAlunos,
-    required this.semestre,
-    required this.observacoes,
-  });
-
-  factory Turma.fromMap(Map<String, dynamic> map) {
-    return Turma(
-      id: map['id'],
-      nomeDoCurso: map['nome_do_curso'],
-      periodo: map['periodo'],
-      qtdDeAlunos: map['qtd_de_alunos'],
-      semestre: map['semestre'] ?? '',
-      observacoes: map['observacoes'] ?? '',
-    );
-  }
-}
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import '../models/turma.dart';
+import '../repositories/turma_repository.dart';
+import 'package:uuid/uuid.dart';
 
 class TurmasPage extends StatefulWidget {
   const TurmasPage({super.key});
@@ -37,234 +11,416 @@ class TurmasPage extends StatefulWidget {
   State<TurmasPage> createState() => _TurmasPageState();
 }
 
+//DEIXAR GRID IGUAL SALAS
+
 class _TurmasPageState extends State<TurmasPage> {
-  final supabase = Supabase.instance.client;
+  List<Turma> todasAsTurmas = []; // Sua lista original
+  String turnoSelecionado = 'Noturno';
+  final List<String> turnos = ['Matutino', 'Vespertino', 'Noturno'];
+  final Uuid uuid = Uuid();
+  final TurmaRepository turmaRepository = TurmaRepository();
   List<Turma> turmas = [];
-  String periodoSelecionado = 'Matutino';
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _carregarTurmas();
+    carregarTurmas();
   }
 
-  Future<void> _carregarTurmas() async {
-    final response = await supabase
-        .from('turmas')
-        .select()
-        .eq('periodo', periodoSelecionado);
-    final data = response as List;
-    setState(() {
-      turmas = data.map((map) => Turma.fromMap(map)).toList();
-    });
-  }
-
-  Future<void> _adicionarTurma(
-      String nome, String periodo, int qtd, String semestre, String obs) async {
+  Future<void> carregarTurmas() async {
+    setState(() => isLoading = true);
     try {
-      final response = await supabase.from('turmas').insert({
-        'nome_do_curso': nome,
-        'periodo': periodo,
-        'semestre': semestre,
-        'qtd_de_alunos': qtd,
-        'observacoes': obs,
-      }).select();
-      if (response.isNotEmpty) {
-        final novaTurma = Turma.fromMap(response.first);
-        setState(() {
-          turmas.add(novaTurma);
-        });
-      }
+      final listaTurmas = await turmaRepository.fetchTurmas();
+      setState(() {
+        turmas = listaTurmas;
+        isLoading = false;
+      });
     } catch (e) {
-      print(e);
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar turmas: $e')),
+      );
     }
   }
 
-  void _showAddTurmaDialog() {
-    final nomeController = TextEditingController();
-    final qtdController = TextEditingController();
-    final semestreController = TextEditingController();
-    final obsController = TextEditingController();
-    String? periodoDialogSelecionado = periodoSelecionado;
+  void abrirFormularioEdicao(Turma turma) {
+    final formKey = GlobalKey<FormState>();
+    final nomeCursoCtrl = TextEditingController(text: turma.nomeDoCurso);
+    final turnoCtrl = TextEditingController(text: turma.turno);
+    final semestreCtrl = TextEditingController(text: turma.semestre.toString());
+    final qtdAlunosCtrl = TextEditingController(text: turma.qtdDeAlunos.toString());
+    final observacoesCtrl = TextEditingController(text: turma.observacoes);
 
     showDialog(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx2, setStateDialog) {
-            return AlertDialog(
-              title: const Text('Adicionar Nova Turma'),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: nomeController,
-                      decoration:
-                          const InputDecoration(labelText: 'Nome do Curso'),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: periodoDialogSelecionado,
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'Matutino', child: Text('Matutino')),
-                        DropdownMenuItem(
-                            value: 'Noturno', child: Text('Noturno')),
-                      ],
-                      onChanged: (value) => setStateDialog(
-                          () => periodoDialogSelecionado = value),
-                      decoration: const InputDecoration(labelText: 'Período'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: qtdController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'Quantidade de Alunos'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: semestreController,
-                      decoration: const InputDecoration(labelText: 'Semestre'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: obsController,
-                      decoration:
-                          const InputDecoration(labelText: 'Observações'),
-                    ),
-                  ],
+      builder: (_) => AlertDialog(
+        title: Text('Editar ${turma.nomeDoCurso}'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nomeCursoCtrl,
+                  decoration: const InputDecoration(labelText: 'Nome do Curso'),
+                  validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancelar'),
+                TextField(
+                  controller: turnoCtrl,
+                  decoration: InputDecoration(labelText: 'Turno'),
                 ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (periodoDialogSelecionado == null) return;
-                    final nome = nomeController.text;
-                    final qtd = int.tryParse(qtdController.text) ?? 0;
-                    final semestre = semestreController.text;
-                    final obs = obsController.text;
-                    await _adicionarTurma(
-                        nome, periodoDialogSelecionado!, qtd, semestre, obs);
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Adicionar'),
+                TextFormField(
+                  controller: semestreCtrl,
+                  decoration: const InputDecoration(labelText: 'Semestre'),
+                ),
+                TextFormField(
+                  controller: qtdAlunosCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Quantidade de Alunos'),
+                ),
+                TextFormField(
+                  controller: observacoesCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Observações'),
                 ),
               ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+            final turmaEditada = Turma(
+              id: turma.id,
+              nomeDoCurso: nomeCursoCtrl.text.trim(),
+              turno: turnoCtrl.text.trim(),
+              semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
+              qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text.trim()) ?? 0,
+              observacoes: observacoesCtrl.text.trim(),
             );
-          },
-        );
-      },
+
+                await turmaRepository.salvarTurma(turmaEditada);
+                Navigator.pop(context);
+                carregarTurmas();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Turma atualizada com sucesso')),
+                );
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final turmasFiltradas =
-        turmas.where((t) => t.periodo == periodoSelecionado).toList();
+  void abrirFormularioCriacao() {
+    final formKey = GlobalKey<FormState>();
+    final nomeCursoCtrl = TextEditingController();
+    final semestreCtrl = TextEditingController();
+    final qtdAlunosCtrl = TextEditingController();
+    final observacoesCtrl = TextEditingController();
 
-    return Scaffold(
-      appBar: AppBar(
-        title:
-            const Text('Turmas', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
+showDialog(
+  context: context,
+  builder: (_) => AlertDialog(
+    title: const Text('Criar nova Turma'),
+    content: Form(
+      key: formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: nomeCursoCtrl,
+              decoration: const InputDecoration(labelText: 'Nome do Curso'),
+              validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
+            ),
+
+            // Dropdown de Turno
+            DropdownButtonFormField<String>(
+              value: turnoSelecionado,
+              decoration: const InputDecoration(labelText: 'Turno'),
+              items: ['Matutino', 'Vespertino', 'Noturno']
+                  .map((turno) => DropdownMenuItem(
+                        value: turno,
+                        child: Text(turno),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => turnoSelecionado = value);
+                }
+              },
+              validator: (v) => v == null || v.isEmpty ? 'Selecione um turno' : null,
+            ),
+
+            TextFormField(
+              controller: semestreCtrl,
+              decoration: const InputDecoration(labelText: 'Semestre'),
+              keyboardType: TextInputType.number,
+              validator: (v) => v == null || v.isEmpty ? 'Informe o semestre' : null,
+            ),
+
+            TextFormField(
+              controller: qtdAlunosCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Quantidade de Alunos'),
+              validator: (v) => v == null || v.isEmpty ? 'Informe a quantidade de alunos' : null,
+            ),
+
+            TextFormField(
+              controller: observacoesCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Observações'),
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTurmaDialog,
-        child: const Icon(Icons.add),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancelar'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: SizedBox(
-              width: 120,
-              child: DropdownButton<String>(
-                value: periodoSelecionado,
-                isExpanded: true,
-                underline: Container(),
-                alignment: Alignment.center,
-                style: const TextStyle(color: Colors.black, fontSize: 14),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    periodoSelecionado = newValue!;
-                  });
-                  _carregarTurmas();
-                },
-                items: <String>['Matutino', 'Noturno'].map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value, textAlign: TextAlign.center),
-                  );
-                }).toList(),
+      ElevatedButton(
+        onPressed: () async {
+          if (formKey.currentState?.validate() ?? false) {
+            final novaTurma = Turma(
+              id: uuid.v4(),
+              nomeDoCurso: nomeCursoCtrl.text.trim(),
+              turno: turnoSelecionado,
+              semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
+              qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text) ?? 0,
+              observacoes: observacoesCtrl.text.trim(),
+            );
+
+            await turmaRepository.salvarTurma(novaTurma);
+            Navigator.pop(context);
+            carregarTurmas();
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Turma criada com sucesso')),
+            );
+          }
+        },
+        child: const Text('Criar'),
+      ),
+    ],
+  ),
+);
+
+  }
+
+  void confirmarExclusao(Turma turma) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Excluir ${turma.nomeDoCurso}?'),
+        content: const Text('Confirma exclusão da turma?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await turmaRepository.excluirTurma(turma.id);
+              Navigator.pop(context);
+              carregarTurmas();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Turma excluída com sucesso')),
+              );
+            },
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+Widget buildListaTurmas(List<Turma> lista) {
+  if (isLoading) {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  if (lista.isEmpty) {
+    return const Center(child: Text('Nenhuma turma cadastrada.'));
+  }
+
+  return GridView.builder(
+    padding: const EdgeInsets.all(8),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 5,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 3 / 2,
+    ),
+    itemCount: lista.length,
+    itemBuilder: (_, index) {
+      final turma = lista[index];
+      return Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Text(
+                  turma.nomeDoCurso,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Text('Turno: ${turma.turno}'),
+              Text('Semestre: ${turma.semestre}'),
+              Text('Alunos: ${turma.qtdDeAlunos}'),
+              if (turma.observacoes.isNotEmpty)
+                Text(
+                  'Obs: ${turma.observacoes}',
+                  style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+                ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () => abrirFormularioEdicao(turma),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => confirmarExclusao(turma),
+                  ),
+                ],
+              ),
+            ],
           ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: turmasFiltradas.isEmpty
-                  ? Center(
-                      child:
-                          Text('Nenhuma turma no período $periodoSelecionado.'))
-                  : GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.5,
-                      ),
-                      itemCount: turmasFiltradas.length,
-                      itemBuilder: (ctx, index) {
-                        final turma = turmasFiltradas[index];
-                        return Card(
-                          elevation: 1,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Center(
-                                  child: Text(turma.nomeDoCurso,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                ),
-                                const SizedBox(height: 8),
-                                _buildInfoItem(
-                                    Icons.numbers, 'ID: ${turma.id}'),
-                                _buildInfoItem(Icons.people,
-                                    'Alunos: ${turma.qtdDeAlunos}'),
-                                _buildInfoItem(Icons.calendar_today,
-                                    'Semestre: ${turma.semestre}'),
-                                _buildInfoItem(Icons.room, turma.observacoes),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      );
+    },
+  );
+}
+
+  Widget buildSpeedDial() {
+    return SpeedDial(
+      icon: Icons.menu,
+      activeIcon: Icons.close,
+      overlayOpacity: 0.4,
+      backgroundColor: Colors.blue,
+      children: [
+        SpeedDialChild(
+          child: const Icon(Icons.add),
+          label: 'Criar Turma',
+          onTap: abrirFormularioCriacao,
+        ),
+        SpeedDialChild(
+          child: const Icon(Icons.refresh),
+          label: 'Atualizar',
+          onTap: carregarTurmas,
+        ),
+      ],
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Flexible(child: Text(text, style: const TextStyle(fontSize: 13))),
-        ],
+@override
+Widget build(BuildContext context) {
+  final turmasFiltradas = turnoSelecionado == 'Todos'
+      ? turmas
+      : turmas.where((t) => t.turno == turnoSelecionado).toList();
+
+  return Scaffold(
+    appBar: PreferredSize(
+      preferredSize: const Size.fromHeight(60),
+      child: AppBar(
+        titleSpacing: 16,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Turmas'),
+            DropdownButton<String>(
+              value: turnoSelecionado,
+              underline: const SizedBox(),
+              onChanged: (String? novoTurno) {
+                if (novoTurno != null) {
+                  setState(() {
+                    turnoSelecionado = novoTurno;
+                  });
+                }
+              },
+              items: turnos.map((turno) {
+                return DropdownMenuItem<String>(
+                  value: turno,
+                  child: Text(turno),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+    body: isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : turmasFiltradas.isEmpty
+            ? const Center(child: Text('Nenhuma turma cadastrada.'))
+            : ListView.builder(
+                padding: const EdgeInsets.all(8),
+                itemCount: turmasFiltradas.length,
+                itemBuilder: (_, index) {
+                  final turma = turmasFiltradas[index];
+                  return Card(
+                    elevation: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      title: Text(
+                        turma.nomeDoCurso,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Turno: ${turma.turno} | Semestre: ${turma.semestre}'),
+                          Text('Alunos: ${turma.qtdDeAlunos}'),
+                          if (turma.observacoes.isNotEmpty)
+                            Text(
+                              'Obs: ${turma.observacoes}',
+                              style: const TextStyle(fontStyle: FontStyle.italic),
+                            ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => abrirFormularioEdicao(turma),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => confirmarExclusao(turma),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+    floatingActionButton: buildSpeedDial(),
+  );
+}
 }

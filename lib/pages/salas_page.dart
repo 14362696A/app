@@ -16,8 +16,8 @@ class _SalasPageState extends State<SalasPage> {
   final SalaRepository salaRepository = SalaRepository();
   Map<String, List<Sala>> salasPorCategoria = {};
   String filtroSelecionado = '';
-  bool modoEdicao = false;
-  bool modoExclusao = false;
+  bool modoEdicao = true;
+  bool modoExclusao = true;
   bool isLoading = true;
 
   @override
@@ -26,24 +26,48 @@ class _SalasPageState extends State<SalasPage> {
     carregarSalas();
   }
 
-  void carregarSalas() async {
-    setState(() => isLoading = true);
-    final salas = await salaRepository.fetchSalas();
+void carregarSalas() async {
+  setState(() => isLoading = true);
+  final salas = await salaRepository.fetchSalas();
 
-    final Map<String, List<Sala>> agrupadas = {};
-    for (var sala in salas) {
-      agrupadas.putIfAbsent(sala.bloco, () => []);
-      agrupadas[sala.bloco]!.add(sala);
-    }
-
-    setState(() {
-      salasPorCategoria = agrupadas;
-      filtroSelecionado = agrupadas.keys.isNotEmpty ? agrupadas.keys.first : '';
-      isLoading = false;
-      modoEdicao = false;
-      modoExclusao = false;
-    });
+  final Map<String, List<Sala>> agrupadas = {};
+  for (var sala in salas) {
+    agrupadas.putIfAbsent(sala.bloco, () => []);
+    agrupadas[sala.bloco]!.add(sala);
   }
+
+  // Função para extrair o número do nome da sala
+  int extrairNumero(String s) {
+    final regex = RegExp(r'(\d+)');
+    final match = regex.firstMatch(s);
+    if (match != null) {
+      return int.tryParse(match.group(0)!) ?? 0;
+    }
+    return 0;
+  }
+
+  // Ordena as salas dentro de cada bloco de forma natural
+  agrupadas.forEach((bloco, listaSalas) {
+    listaSalas.sort((a, b) {
+      final numA = extrairNumero(a.nome);
+      final numB = extrairNumero(b.nome);
+      if (numA != numB) {
+        return numA.compareTo(numB);
+      } else {
+        // Se os números forem iguais, ordena alfabeticamente pelo restante do nome
+        return a.nome.compareTo(b.nome);
+      }
+    });
+  });
+
+  setState(() {
+    salasPorCategoria = agrupadas;
+    filtroSelecionado = agrupadas.keys.isNotEmpty ? agrupadas.keys.first : '';
+    isLoading = false;
+    modoEdicao = false;
+    modoExclusao = false;
+  });
+}
 
   void abrirFormularioEdicao(Sala sala) {
     final formKey = GlobalKey<FormState>();
@@ -160,10 +184,11 @@ class _SalasPageState extends State<SalasPage> {
     bool projetor = false;
 
     final nomeCtrl = TextEditingController();
-    final blocoCtrl = TextEditingController();
     final cadeirasCtrl = TextEditingController();
     final cadeirasPcdCtrl = TextEditingController();
     final pcsCtrl = TextEditingController();
+    String? blocoSelecionado = 'Bloco C'; // valor inicial
+
 
     showDialog(
       context: context,
@@ -180,10 +205,17 @@ class _SalasPageState extends State<SalasPage> {
                   decoration: const InputDecoration(labelText: 'Nome da Sala'),
                   validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
                 ),
-                TextFormField(
-                  controller: blocoCtrl,
+                DropdownButtonFormField<String>(
+                  value: blocoSelecionado,
+                  onChanged: (v) => blocoSelecionado = v,
+                  items: const [
+                    DropdownMenuItem(value: 'Bloco C', child: Text('Bloco C')),
+                    DropdownMenuItem(value: 'Bloco D', child: Text('Bloco D')),
+                    DropdownMenuItem(value: 'Lab. INF.', child: Text('Lab. INF.')),
+                    DropdownMenuItem(value: 'Lab Saúde', child: Text('Lab Saúde')),
+                  ],
                   decoration: const InputDecoration(labelText: 'Bloco'),
-                  validator: (v) => v == null || v.isEmpty ? 'Informe o bloco' : null,
+                  validator: (v) => v == null || v.isEmpty ? 'Selecione o bloco' : null,
                 ),
                 DropdownButtonFormField<bool>(
                   value: ativa,
@@ -251,7 +283,7 @@ class _SalasPageState extends State<SalasPage> {
                 final novaSala = Sala(
                   id: uuid.v4(),
                   nome: nomeCtrl.text.trim(),
-                  bloco: blocoCtrl.text.trim(),
+bloco: blocoSelecionado ?? '',
                   ativa: ativa,
                   arCondicionado: arCondicionado,
                   tv: tv,
@@ -322,85 +354,195 @@ class _SalasPageState extends State<SalasPage> {
       },
     );
   }
-
-  Widget buildListaSalas() {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final salas = filtroSelecionado.isNotEmpty
-        ? salasPorCategoria[filtroSelecionado] ?? []
-        : [];
-
-    if (salas.isEmpty) {
-      return const Center(child: Text('Nenhuma sala encontrada.'));
-    }
-
-    return ListView.builder(
-      itemCount: salas.length,
-      itemBuilder: (_, index) {
-        final sala = salas[index];
-        return Card(
-          child: ListTile(
-            title: Text(sala.nome),
-            subtitle: Text('Cadeiras: ${sala.cadeiras}, PCD: ${sala.cadeirasPcd}, PCs: ${sala.computadores}'),
-            trailing: modoExclusao
-                ? IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => confirmarExclusao(sala),
-                  )
-                : modoEdicao
-                    ? IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => abrirFormularioEdicao(sala),
-                      )
-                    : null,
-          ),
-        );
-      },
-    );
+Widget buildListaSalas() {
+  if (isLoading) {
+    return const Center(child: CircularProgressIndicator());
   }
 
-  Widget buildSpeedDial() {
-    return SpeedDial(
-      icon: Icons.menu,
-      activeIcon: Icons.close,
-      overlayOpacity: 0.4,
-      backgroundColor: Colors.blue,
+  final salas = filtroSelecionado.isNotEmpty
+      ? salasPorCategoria[filtroSelecionado] ?? []
+      : [];
+
+  if (salas.isEmpty) {
+    return const Center(child: Text('Nenhuma sala encontrada.'));
+  }
+
+  return GridView.builder(
+    padding: const EdgeInsets.all(8),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 5, // 5 cards por linha
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 3 / 2, // Ajusta a proporção do card (largura/altura)
+    ),
+    itemCount: salas.length,
+    itemBuilder: (_, index) {
+      final sala = salas[index];
+return Card(
+  elevation: 3,
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  child: Padding(
+    padding: const EdgeInsets.all(12.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SpeedDialChild(
-          child: const Icon(Icons.add),
-          label: 'Criar Sala',
-          onTap: abrirFormularioCriacao,
+        Center(
+          child: Text(
+            sala.nome,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
-        SpeedDialChild(
-          child: const Icon(Icons.edit),
-          label: modoEdicao ? 'Cancelar Edição' : 'Modo Edição',
-          onTap: () {
-            setState(() {
-              modoEdicao = !modoEdicao;
-              if (modoEdicao) modoExclusao = false;
-            });
-          },
+        const SizedBox(height: 8),
+
+        // Status
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              sala.ativa ? Icons.check_circle : Icons.cancel,
+              size: 18,
+              color: sala.ativa ? Colors.green : Colors.red,
+            ),
+            const SizedBox(width: 6),
+            Text('Status: ${sala.ativa ? 'Ativa' : 'Inativa'}'),
+          ],
         ),
-        SpeedDialChild(
-          child: const Icon(Icons.delete),
-          label: modoExclusao ? 'Cancelar Exclusão' : 'Modo Exclusão',
-          onTap: () {
-            setState(() {
-              modoExclusao = !modoExclusao;
-              if (modoExclusao) modoEdicao = false;
-            });
-          },
+        const SizedBox(height: 8),
+
+        // Cadeiras, Cadeiras PCD e PCs
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.event_seat, size: 18, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text('Cadeiras: ${sala.cadeiras}'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.accessible, size: 18, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text('Cadeiras PCD: ${sala.cadeirasPcd}'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.computer, size: 18, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text('PCs: ${sala.computadores}'),
+              ],
+            ),
+          ],
         ),
-        SpeedDialChild(
-          child: const Icon(Icons.refresh),
-          label: 'Atualizar',
-          onTap: carregarSalas,
+        const SizedBox(height: 8),
+
+        // Equipamentos lado a lado
+        Wrap(
+          spacing: 16,
+          runSpacing: 4,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  sala.arCondicionado ? Icons.ac_unit : Icons.ac_unit_outlined,
+                  size: 18,
+                  color: sala.arCondicionado ? Colors.blue : Colors.grey,
+                ),
+                const SizedBox(width: 4),
+                const Text('Ar-condicionado'),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  sala.tv ? Icons.tv : Icons.tv_outlined,
+                  size: 18,
+                  color: sala.tv ? Colors.blue : Colors.grey,
+                ),
+                const SizedBox(width: 4),
+                const Text('TV'),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  sala.projetor ? Icons.videocam : Icons.videocam_off,
+                  size: 18,
+                  color: sala.projetor ? Colors.blue : Colors.grey,
+                ),
+                const SizedBox(width: 4),
+                const Text('Projetor'),
+              ],
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // Botões de editar e excluir SEM condições, sempre visíveis
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: () => abrirFormularioEdicao(sala),
+              tooltip: 'Editar',
+              iconSize: 24,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => confirmarExclusao(sala),
+              tooltip: 'Excluir',
+              iconSize: 24,
+            ),
+          ],
         ),
       ],
-    );
-  }
+    ),
+  ),
+);
+
+
+    },
+  );
+}
+
+
+  Widget buildSpeedDial() {
+  return SpeedDial(
+    icon: Icons.menu,
+    activeIcon: Icons.close,
+    overlayOpacity: 0.4,
+    backgroundColor: Colors.blue,
+    children: [
+      SpeedDialChild(
+        child: const Icon(Icons.add),
+        label: 'Criar Sala',
+        onTap: abrirFormularioCriacao,
+      ),
+      SpeedDialChild(
+        child: const Icon(Icons.refresh),
+        label: 'Atualizar',
+        onTap: carregarSalas,
+      ),
+    ],
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

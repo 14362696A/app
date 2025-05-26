@@ -32,19 +32,24 @@ class SalaRepository {
     }
   }
 
-  Future<void> excluirSala(Sala sala) async {
-    try {
-      final response = await supabase
-          .from('salas')
-          .delete()
-          .match({'id': sala.id})
-          .execute();
+Future<void> excluirSala(Sala sala) async {
+  try {
+    print('Tentando excluir sala com ID: ${sala.id}');
 
-      if (response.status != 200 && response.status != 204) {
-        throw Exception('Erro ao excluir sala: status ${response.status}');
-      }
-    } catch (e) {
-      throw Exception('Erro ao excluir sala: $e');
+    final response = await supabase
+        .from('salas')
+        .delete()
+        .match({'id': sala.id})
+        .execute();
+
+    print('Response status: ${response.status}');
+    print('Response body: ${response.data}');
+
+    if (response.status != 200 && response.status != 204) {
+      throw Exception('Erro ao excluir sala: status ${response.status}');
     }
+  } catch (e) {
+    throw Exception('Erro ao excluir sala: $e');
   }
+}
 }
