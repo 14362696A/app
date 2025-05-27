@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfessoresPage extends StatefulWidget {
@@ -17,6 +18,7 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
   final _telefoneController = TextEditingController();
   final _materiaController = TextEditingController();
   String? _professorId;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -25,12 +27,14 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
   }
 
   void _carregarProfessores() {
+    setState(() => isLoading = true);
     setState(() {
       _professoresFuture = _supabase
           .from('professores')
           .select()
           .order('nome', ascending: true)
           .then((response) {
+            setState(() => isLoading = false);
             if (response is List) {
               try {
                 return List<Map<String, dynamic>>.from(response);
@@ -39,6 +43,9 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
               }
             }
             throw Exception('Formato de dados inesperado');
+          }).catchError((e) {
+            setState(() => isLoading = false);
+            throw e;
           });
     });
   }
@@ -64,6 +71,11 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
 
       _limparFormulario();
       _carregarProfessores();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Professor salvo com sucesso'))
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -82,10 +94,38 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
     _abrirFormulario();
   }
 
+  void _confirmarExclusao(String id, String nome) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Excluir $nome?'),
+        content: const Text('Confirma exclusão do professor?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _excluirProfessor(id);
+            },
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _excluirProfessor(String id) async {
     try {
       await _supabase.from('professores').delete().eq('id', id);
       _carregarProfessores();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Professor excluído com sucesso'))
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -157,14 +197,124 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
     );
   }
 
+  Widget buildListaProfessores(List<Map<String, dynamic>> lista) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (lista.isEmpty) {
+      return const Center(child: Text('Nenhum professor cadastrado.'));
+    }
+
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    final crossAxisCount = screenWidth < 600
+        ? 1
+        : screenWidth < 1200
+            ? 2
+            : screenWidth < 1400
+                ? 3
+                : screenWidth < 1600
+                    ? 4
+                    : 5;
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 3 / 2.3,
+      ),
+      itemCount: lista.length,
+      itemBuilder: (_, index) {
+        final professor = lista[index];
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    professor['nome'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const Divider(height: 16, thickness: 1),
+                Text('Matéria: ${professor['materia']}',
+                    style: const TextStyle(fontSize: 14)),
+                Text('E-mail: ${professor['email']}',
+                    style: const TextStyle(fontSize: 14)),
+                if (professor['telefone'] != null)
+                  Text('Telefone: ${professor['telefone']}',
+                      style: const TextStyle(fontSize: 14)),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: () => _editarProfessor(professor),
+                      tooltip: 'Editar',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => _confirmarExclusao(
+                          professor['id'], professor['nome']),
+                      tooltip: 'Excluir',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildSpeedDial() {
+    return SpeedDial(
+      icon: Icons.menu,
+      activeIcon: Icons.close,
+      overlayOpacity: 0.4,
+      backgroundColor: Colors.blue,
+      children: [
+        SpeedDialChild(
+          child: const Icon(Icons.add),
+          label: 'Adicionar Professor',
+          onTap: () {
+            _limparFormulario();
+            _abrirFormulario();
+          },
+        ),
+        SpeedDialChild(
+          child: const Icon(Icons.refresh),
+          label: 'Atualizar',
+          onTap: _carregarProfessores,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Professores')),
+      appBar: AppBar(
+        title: const Text('Professores'),
+      ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _professoresFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && !isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -194,56 +344,12 @@ class _ProfessoresPageState extends State<ProfessoresPage> {
             );
           }
 
-          final professores = snapshot.data!;
+          final professores = snapshot.data ?? [];
 
-          if (professores.isEmpty) {
-            return const Center(
-              child: Text('Nenhum professor cadastrado'),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: professores.length,
-            itemBuilder: (context, index) {
-              final professor = professores[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: ListTile(
-                  title: Text(professor['nome']),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(professor['materia']),
-                      if (professor['telefone'] != null)
-                        Text(professor['telefone']),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _editarProfessor(professor),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _excluirProfessor(professor['id']),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
+          return buildListaProfessores(professores);
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () {
-          _limparFormulario();
-          _abrirFormulario();
-        },
-      ),
+      floatingActionButton: buildSpeedDial(),
     );
   }
 
