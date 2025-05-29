@@ -41,9 +41,9 @@ class Turma {
       semestre: map['semestre'] is int
           ? map['semestre']
           : int.tryParse(map['semestre'].toString()) ?? 0,
-      qtdDeAlunos: map['qtdealunos'] is int
-          ? map['qtdealunos']
-          : int.tryParse(map['qtdealunos'].toString()) ?? 0,
+      qtdDeAlunos: map['qtdDeAlunos'] is int
+          ? map['qtdDeAlunos']
+          : int.tryParse(map['qtdDeAlunos'].toString()) ?? 0,
       observacoes: map['observacoes'] ?? '',
     );
   }
@@ -51,11 +51,21 @@ class Turma {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'nomedocurso': nomeDoCurso,
+      'nomeDoCurso': nomeDoCurso,
       'turno': turno,
       'semestre': semestre,
-      'qtdealunos': qtdDeAlunos,
+      'qtdDeAlunos': qtdDeAlunos,
       'observacoes': observacoes,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Turma &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

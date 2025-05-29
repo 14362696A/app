@@ -11,16 +11,17 @@ class TurmasPage extends StatefulWidget {
   State<TurmasPage> createState() => _TurmasPageState();
 }
 
-//DEIXAR GRID IGUAL SALAS
+// TurmasPage com GridView e filtro de turno, igual ao padrão usado nas salas
 
 class _TurmasPageState extends State<TurmasPage> {
-  List<Turma> todasAsTurmas = []; // Sua lista original
-  String turnoSelecionado = 'Noturno';
-  final List<String> turnos = ['Matutino', 'Vespertino', 'Noturno'];
-  final Uuid uuid = Uuid();
-  final TurmaRepository turmaRepository = TurmaRepository();
   List<Turma> turmas = [];
   bool isLoading = true;
+  final Uuid uuid = Uuid();
+  final TurmaRepository turmaRepository = TurmaRepository();
+
+  // Lista de turnos com opção 'Todos' para filtro
+  String turnoSelecionado = 'Todos';
+  final List<String> turnos = ['Todos', 'Matutino', 'Vespertino', 'Noturno'];
 
   @override
   void initState() {
@@ -49,8 +50,7 @@ class _TurmasPageState extends State<TurmasPage> {
     final nomeDoCursoCtrl = TextEditingController(text: turma.nomeDoCurso);
     final turnoCtrl = TextEditingController(text: turma.turno);
     final semestreCtrl = TextEditingController(text: turma.semestre.toString());
-    final qtdAlunosCtrl =
-        TextEditingController(text: turma.qtdDeAlunos.toString());
+    final qtdAlunosCtrl = TextEditingController(text: turma.qtdDeAlunos.toString());
     final observacoesCtrl = TextEditingController(text: turma.observacoes);
 
     showDialog(
@@ -66,22 +66,30 @@ class _TurmasPageState extends State<TurmasPage> {
                 TextFormField(
                   controller: nomeDoCursoCtrl,
                   decoration: const InputDecoration(labelText: 'Nome do Curso'),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Informe o nome' : null,
+                  validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
                 ),
-                TextField(
-                  controller: turnoCtrl,
-                  decoration: InputDecoration(labelText: 'Turno'),
+                // Usar Dropdown para turno aqui também
+                DropdownButtonFormField<String>(
+                  value: turnoCtrl.text.isNotEmpty ? turnoCtrl.text : 'Matutino',
+                  decoration: const InputDecoration(labelText: 'Turno'),
+                  items: ['Matutino', 'Vespertino', 'Noturno']
+                      .map((turno) => DropdownMenuItem(value: turno, child: Text(turno)))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      turnoCtrl.text = value;
+                    }
+                  },
                 ),
                 TextFormField(
                   controller: semestreCtrl,
                   decoration: const InputDecoration(labelText: 'Semestre'),
+                  keyboardType: TextInputType.number,
                 ),
                 TextFormField(
                   controller: qtdAlunosCtrl,
                   keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Quantidade de Alunos'),
+                  decoration: const InputDecoration(labelText: 'Quantidade de Alunos'),
                 ),
                 TextFormField(
                   controller: observacoesCtrl,
@@ -93,10 +101,7 @@ class _TurmasPageState extends State<TurmasPage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState?.validate() ?? false) {
@@ -131,6 +136,7 @@ class _TurmasPageState extends State<TurmasPage> {
     final semestreCtrl = TextEditingController();
     final qtdAlunosCtrl = TextEditingController();
     final observacoesCtrl = TextEditingController();
+    String turnoCriacao = 'Matutino';
 
     showDialog(
       context: context,
@@ -145,47 +151,33 @@ class _TurmasPageState extends State<TurmasPage> {
                 TextFormField(
                   controller: nomeDoCursoCtrl,
                   decoration: const InputDecoration(labelText: 'Nome do Curso'),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Informe o nome' : null,
+                  validator: (v) => v == null || v.isEmpty ? 'Informe o nome' : null,
                 ),
-
-                // Dropdown de Turno
                 DropdownButtonFormField<String>(
-                  value: turnoSelecionado,
+                  value: turnoCriacao,
                   decoration: const InputDecoration(labelText: 'Turno'),
                   items: ['Matutino', 'Vespertino', 'Noturno']
-                      .map((turno) => DropdownMenuItem(
-                            value: turno,
-                            child: Text(turno),
-                          ))
+                      .map((turno) => DropdownMenuItem(value: turno, child: Text(turno)))
                       .toList(),
                   onChanged: (value) {
                     if (value != null) {
-                      setState(() => turnoSelecionado = value);
+                      turnoCriacao = value;
                     }
                   },
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Selecione um turno' : null,
+                  validator: (v) => v == null || v.isEmpty ? 'Selecione um turno' : null,
                 ),
-
                 TextFormField(
                   controller: semestreCtrl,
                   decoration: const InputDecoration(labelText: 'Semestre'),
                   keyboardType: TextInputType.number,
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Informe o semestre' : null,
+                  validator: (v) => v == null || v.isEmpty ? 'Informe o semestre' : null,
                 ),
-
                 TextFormField(
                   controller: qtdAlunosCtrl,
                   keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Quantidade de Alunos'),
-                  validator: (v) => v == null || v.isEmpty
-                      ? 'Informe a quantidade de alunos'
-                      : null,
+                  decoration: const InputDecoration(labelText: 'Quantidade de Alunos'),
+                  validator: (v) => v == null || v.isEmpty ? 'Informe a quantidade de alunos' : null,
                 ),
-
                 TextFormField(
                   controller: observacoesCtrl,
                   maxLines: 3,
@@ -196,19 +188,16 @@ class _TurmasPageState extends State<TurmasPage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState?.validate() ?? false) {
                 final novaTurma = Turma(
                   id: uuid.v4(),
                   nomeDoCurso: nomeDoCursoCtrl.text.trim(),
-                  turno: turnoSelecionado,
+                  turno: turnoCriacao,
                   semestre: int.tryParse(semestreCtrl.text.trim()) ?? 0,
-                  qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text) ?? 0,
+                  qtdDeAlunos: int.tryParse(qtdAlunosCtrl.text.trim()) ?? 0,
                   observacoes: observacoesCtrl.text.trim(),
                 );
 
@@ -235,10 +224,7 @@ class _TurmasPageState extends State<TurmasPage> {
         title: Text('Excluir ${turma.nomeDoCurso}?'),
         content: const Text('Confirma exclusão da turma?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               await turmaRepository.excluirTurma(turma.id);
@@ -290,8 +276,7 @@ class _TurmasPageState extends State<TurmasPage> {
         final turma = lista[index];
         return Card(
           elevation: 4,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -303,18 +288,15 @@ class _TurmasPageState extends State<TurmasPage> {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Colors.black, // cor normal
+                      color: Colors.black,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
                 const Divider(height: 16, thickness: 1),
-                Text('Turno: ${turma.turno}',
-                    style: const TextStyle(fontSize: 14)),
-                Text('Semestre: ${turma.semestre}',
-                    style: const TextStyle(fontSize: 14)),
-                Text('Alunos: ${turma.qtdDeAlunos}',
-                    style: const TextStyle(fontSize: 14)),
+                Text('Turno: ${turma.turno}', style: const TextStyle(fontSize: 14)),
+                Text('Semestre: ${turma.semestre}', style: const TextStyle(fontSize: 14)),
+                Text('Alunos: ${turma.qtdDeAlunos}', style: const TextStyle(fontSize: 14)),
                 if (turma.observacoes.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -353,20 +335,15 @@ class _TurmasPageState extends State<TurmasPage> {
 
   Widget buildSpeedDial() {
     return SpeedDial(
-      icon: Icons.menu,
+      icon: Icons.add,
       activeIcon: Icons.close,
-      overlayOpacity: 0.4,
       backgroundColor: Colors.blue,
+      foregroundColor: Colors.white,
       children: [
         SpeedDialChild(
           child: const Icon(Icons.add),
-          label: 'Criar Turma',
+          label: 'Criar nova turma',
           onTap: abrirFormularioCriacao,
-        ),
-        SpeedDialChild(
-          child: const Icon(Icons.refresh),
-          label: 'Atualizar',
-          onTap: carregarTurmas,
         ),
       ],
     );
@@ -374,46 +351,44 @@ class _TurmasPageState extends State<TurmasPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Aplica filtro de turno
     final turmasFiltradas = turnoSelecionado == 'Todos'
         ? turmas
         : turmas.where((t) => t.turno == turnoSelecionado).toList();
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: AppBar(
-          titleSpacing: 16,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Turmas'),
-              DropdownButton<String>(
-                value: turnoSelecionado,
-                underline: const SizedBox(),
-                onChanged: (String? novoTurno) {
-                  if (novoTurno != null) {
-                    setState(() {
-                      turnoSelecionado = novoTurno;
-                    });
-                  }
-                },
-                items: turnos.map((turno) {
-                  return DropdownMenuItem<String>(
-                    value: turno,
-                    child: Text(turno),
-                  );
-                }).toList(),
-              ),
-            ],
+      appBar: AppBar(
+        title: const Text('Turmas'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: DropdownButton<String>(
+              value: turnoSelecionado,
+              underline: const SizedBox(),
+              dropdownColor: Colors.white,
+              items: turnos
+                  .map((turno) => DropdownMenuItem<String>(
+                        value: turno,
+                        child: Text(turno),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    turnoSelecionado = value;
+                  });
+                }
+              },
+              icon: const Icon(Icons.filter_list, color: Colors.white),
+              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
+        ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : turmasFiltradas.isEmpty
-              ? const Center(child: Text('Nenhuma turma cadastrada.'))
-              : buildListaTurmas(
-                  turmasFiltradas), // <<< AQUI É O NOVO MÉTODO COM GRID
+      body: RefreshIndicator(
+        onRefresh: carregarTurmas,
+        child: buildListaTurmas(turmasFiltradas),
+      ),
       floatingActionButton: buildSpeedDial(),
     );
   }
