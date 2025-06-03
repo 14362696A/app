@@ -53,7 +53,7 @@ class Turma {
       'id': id,
       'nomeDoCurso': nomeDoCurso,
       'turno': turno,
-      'semestre': semestre,
+      'semestre': semestre,                                                         
       'qtdDeAlunos': qtdDeAlunos,
       'observacoes': observacoes,
     };

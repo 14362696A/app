@@ -11,22 +11,10 @@ class Sala {
 
   factory Sala.fromMap(Map<String, dynamic> map) {
     return Sala(
-      id: map['id'],
-      nome: map['nome'],
+      id: map['id'] as String,
+      nome: map['nome'] as String,
     );
   }
-}
-
-class EnsalamentoCardData {
-  String? salaId;
-  Turma? primeiroHorario;
-  Turma? segundoHorario;
-
-  EnsalamentoCardData({
-    this.salaId,
-    this.primeiroHorario,
-    this.segundoHorario,
-  });
 }
 
 class EnsalamentoPage extends StatefulWidget {
@@ -42,7 +30,30 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
   List<Sala> salas = [];
   List<Turma> turmas = [];
 
-  List<EnsalamentoCardData> ensalamentoCards = [];
+  // Agora armazenamos sala, turma e semestre em cada horário para cada slot
+  Map<String, Map<String, dynamic>> turmasSelecionadas = {
+    '-1': {
+      'sala': null,
+      'primeiroHorario': null,
+      'primeiroSemestre': null,
+      'segundoHorario': null,
+      'segundoSemestre': null,
+    },
+    '-2': {
+      'sala': null,
+      'primeiroHorario': null,
+      'primeiroSemestre': null,
+      'segundoHorario': null,
+      'segundoSemestre': null,
+    },
+    '-3': {
+      'sala': null,
+      'primeiroHorario': null,
+      'primeiroSemestre': null,
+      'segundoHorario': null,
+      'segundoSemestre': null,
+    },
+  };
 
   bool loadingTurmas = true;
   bool loadingSalas = true;
@@ -52,7 +63,6 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
     super.initState();
     fetchTurmas();
     fetchSalas();
-    ensalamentoCards = List.generate(3, (_) => EnsalamentoCardData());
   }
 
   Future<void> fetchSalas() async {
@@ -61,6 +71,10 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
       if (response is List) {
         setState(() {
           salas = response.map((e) => Sala.fromMap(e)).toList();
+          loadingSalas = false;
+        });
+      } else {
+        setState(() {
           loadingSalas = false;
         });
       }
@@ -74,11 +88,14 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
 
   Future<void> fetchTurmas() async {
     try {
-      final response =
-          await supabase.from('turmas').select().order('nomeDoCurso');
+      final response = await supabase.from('turmas').select().order('nomeDoCurso');
       if (response is List) {
         setState(() {
           turmas = response.map((e) => Turma.fromMap(e)).toList();
+          loadingTurmas = false;
+        });
+      } else {
+        setState(() {
           loadingTurmas = false;
         });
       }
@@ -90,27 +107,26 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
     }
   }
 
-  bool turmaJaLancada(int cardIndex, String periodo, Turma turma) {
-    for (int i = 0; i < ensalamentoCards.length; i++) {
-      if (i == cardIndex) continue;
-      final outroHorario = periodo == 'primeiroHorario'
-          ? ensalamentoCards[i].primeiroHorario
-          : ensalamentoCards[i].segundoHorario;
-      if (outroHorario != null && outroHorario.id == turma.id) {
+  bool turmaJaLancada(String slotId, String periodo, Turma turma) {
+    for (var entry in turmasSelecionadas.entries) {
+      String outraSalaId = entry.key;
+      Turma? turmaNoPeriodo = entry.value[periodo];
+      if (outraSalaId != slotId && turmaNoPeriodo != null && turmaNoPeriodo.id == turma.id) {
         return true;
       }
     }
     return false;
   }
 
-  bool salaJaSelecionada(int cardIndex, String salaId) {
-    for (int i = 0; i < ensalamentoCards.length; i++) {
-      if (i == cardIndex) continue;
-      if (ensalamentoCards[i].salaId == salaId) {
-        return true;
-      }
-    }
-    return false;
+  List<int> getSemestresDisponiveis(Turma turma) {
+    // Retorna lista de semestres únicos para o curso da turma
+    final semestres = turmas
+        .where((t) => t.nomeDoCurso == turma.nomeDoCurso)
+        .map((t) => t.semestre)
+        .toSet()
+        .toList();
+    semestres.sort();
+    return semestres;
   }
 
   @override
@@ -128,159 +144,156 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 childAspectRatio: 0.75,
-                children: List.generate(ensalamentoCards.length, (index) {
-                  final cardData = ensalamentoCards[index];
-                  Sala? salaAtual = salas.firstWhere(
-                    (s) => s.id == cardData.salaId,
-                    orElse: () => Sala(id: '', nome: 'Selecione uma sala'),
-                  );
+                children: turmasSelecionadas.entries.map((entry) {
+                  String slotId = entry.key;
+                  Map<String, dynamic> dados = entry.value;
 
-                  List<String> salasSelecionadasIds = ensalamentoCards
-                      .asMap()
-                      .entries
-                      .where((entry) => entry.key != index)
-                      .map((entry) => entry.value.salaId)
+                  Sala? salaAtual = dados['sala'] as Sala?;
+
+                  List<String> salasSelecionadasIds = turmasSelecionadas.entries
+                      .where((e) => e.key != slotId)
+                      .map((e) => (e.value['sala'] as Sala?)?.id)
                       .whereType<String>()
                       .toList();
+
+                  Turma? primeiroHorario = dados['primeiroHorario'] as Turma?;
+                  int? primeiroSemestre = dados['primeiroSemestre'] as int?;
+
+                  Turma? segundoHorario = dados['segundoHorario'] as Turma?;
+                  int? segundoSemestre = dados['segundoSemestre'] as int?;
 
                   return Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Ícone de excluir card
-                          Align(
-                            alignment: Alignment.topRight,
-                            child: IconButton(
-                              icon: const Icon(Icons.close, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  ensalamentoCards.removeAt(index);
-                                });
-                              },
-                            ),
-                          ),
-
-                          DropdownButton<String>(
-                            isExpanded: true,
-                            value:
-                                salaAtual.id.isNotEmpty ? salaAtual.id : null,
-                            hint: const Text('Selecione uma sala'),
-                            items: [
-                              if (salaAtual.id.isEmpty)
-                                const DropdownMenuItem<String>(
-                                  value: '',
-                                  child: Text('Selecione uma sala'),
-                                ),
-                              ...salas
-                                  .where((s) =>
-                                      s.id == salaAtual.id ||
-                                      !salasSelecionadasIds.contains(s.id))
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownButton<String>(
+                              isExpanded: true,
+                              value: salaAtual?.id,
+                              hint: const Text('Selecione uma sala'),
+                              items: salas
+                                  .where((s) => !salasSelecionadasIds.contains(s.id) || s.id == salaAtual?.id)
                                   .map((s) => DropdownMenuItem<String>(
                                         value: s.id,
                                         child: Text(s.nome),
                                       ))
+                                  .toList(),
+                              onChanged: (novoId) {
+                                if (novoId == null) return;
+                                setState(() {
+                                  dados['sala'] = salas.firstWhere((s) => s.id == novoId);
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            const Text('1º Horário', style: TextStyle(fontWeight: FontWeight.w600)),
+                            DropdownButton<Turma>(
+                              isExpanded: true,
+                              value: primeiroHorario,
+                              hint: const Text('Selecione uma turma'),
+                              items: turmas.map((turma) {
+                                return DropdownMenuItem<Turma>(
+                                  value: turma,
+                                  child: Text(turma.nomeDoCurso),
+                                );
+                              }).toList(),
+                              onChanged: (novaTurma) {
+                                if (novaTurma == null) return;
+                                if (turmaJaLancada(slotId, 'primeiroHorario', novaTurma)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Turma já foi lançada neste período'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                } else {
+                                  setState(() {
+                                    dados['primeiroHorario'] = novaTurma;
+                                    dados['primeiroSemestre'] = null; // reset semestre ao trocar turma
+                                  });
+                                }
+                              },
+                            ),
+                            if (primeiroHorario != null) ...[
+                              const SizedBox(height: 5),
+                              const Text('Semestre disponível:', style: TextStyle(fontWeight: FontWeight.w500)),
+                              DropdownButton<int>(
+                                isExpanded: true,
+                                value: primeiroSemestre,
+                                hint: const Text('Selecione o semestre'),
+                                items: getSemestresDisponiveis(primeiroHorario).map((sem) {
+                                  return DropdownMenuItem<int>(
+                                    value: sem,
+                                    child: Text(sem.toString()),
+                                  );
+                                }).toList(),
+                                onChanged: (semestre) {
+                                  setState(() {
+                                    dados['primeiroSemestre'] = semestre;
+                                  });
+                                },
+                              ),
                             ],
-                            onChanged: (novoId) {
-                              if (novoId == null || novoId.isEmpty) return;
-
-                              if (salaJaSelecionada(index, novoId)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Sala já selecionada em outro card'),
-                                    duration: Duration(seconds: 2),
-                                  ),
+                            const SizedBox(height: 20),
+                            const Text('2º Horário', style: TextStyle(fontWeight: FontWeight.w600)),
+                            DropdownButton<Turma>(
+                              isExpanded: true,
+                              value: segundoHorario,
+                              hint: const Text('Selecione uma turma'),
+                              items: turmas.map((turma) {
+                                return DropdownMenuItem<Turma>(
+                                  value: turma,
+                                  child: Text(turma.nomeDoCurso),
                                 );
-                                return;
-                              }
-
-                              setState(() {
-                                ensalamentoCards[index].salaId = novoId;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                          const Text('1º Horário',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                          DropdownButton<Turma>(
-                            isExpanded: true,
-                            value: cardData.primeiroHorario,
-                            hint: const Text('Selecione uma turma'),
-                            items: turmas.map((turma) {
-                              return DropdownMenuItem<Turma>(
-                                value: turma,
-                                child: Text(turma.nomeDoCurso),
-                              );
-                            }).toList(),
-                            onChanged: (novaTurma) {
-                              if (novaTurma == null) return;
-                              if (turmaJaLancada(
-                                  index, 'primeiroHorario', novaTurma)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Turma já foi lançada neste período'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              } else {
-                                setState(() {
-                                  ensalamentoCards[index].primeiroHorario =
-                                      novaTurma;
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          const Text('2º Horário',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                          DropdownButton<Turma>(
-                            isExpanded: true,
-                            value: cardData.segundoHorario,
-                            hint: const Text('Selecione uma turma'),
-                            items: turmas.map((turma) {
-                              return DropdownMenuItem<Turma>(
-                                value: turma,
-                                child: Text(turma.nomeDoCurso),
-                              );
-                            }).toList(),
-                            onChanged: (novaTurma) {
-                              if (novaTurma == null) return;
-                              if (turmaJaLancada(
-                                  index, 'segundoHorario', novaTurma)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Turma já foi lançada neste período'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              } else {
-                                setState(() {
-                                  ensalamentoCards[index].segundoHorario =
-                                      novaTurma;
-                                });
-                              }
-                            },
-                          ),
-                        ],
+                              }).toList(),
+                              onChanged: (novaTurma) {
+                                if (novaTurma == null) return;
+                                if (turmaJaLancada(slotId, 'segundoHorario', novaTurma)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Turma já foi lançada neste período'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                } else {
+                                  setState(() {
+                                    dados['segundoHorario'] = novaTurma;
+                                    dados['segundoSemestre'] = null; // reset semestre ao trocar turma
+                                  });
+                                }
+                              },
+                            ),
+                            if (segundoHorario != null) ...[
+                              const SizedBox(height: 5),
+                              const Text('Semestre disponível:', style: TextStyle(fontWeight: FontWeight.w500)),
+                              DropdownButton<int>(
+                                isExpanded: true,
+                                value: segundoSemestre,
+                                hint: const Text('Selecione o semestre'),
+                                items: getSemestresDisponiveis(segundoHorario).map((sem) {
+                                  return DropdownMenuItem<int>(
+                                    value: sem,
+                                    child: Text(sem.toString()),
+                                  );
+                                }).toList(),
+                                onChanged: (semestre) {
+                                  setState(() {
+                                    dados['segundoSemestre'] = semestre;
+                                  });
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   );
-                }),
+                }).toList(),
               ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            ensalamentoCards.add(EnsalamentoCardData());
-          });
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
