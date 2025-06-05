@@ -30,7 +30,7 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
   List<Sala> salas = [];
   List<Turma> turmas = [];
 
-  // Agora armazenamos sala, turma e semestre em cada horário para cada slot
+  int cardCounter = 3;
   Map<String, Map<String, dynamic>> turmasSelecionadas = {
     '-1': {
       'sala': null,
@@ -107,33 +107,82 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
     }
   }
 
-  bool turmaJaLancada(String slotId, String periodo, Turma turma) {
+  // Corrigido: Agora verifica nomeDoCurso + semestre, e só se ambos coincidirem
+  bool turmaJaLancada(String slotId, String periodo, Turma turmaSelecionada, [int? semestreSelecionado]) {
     for (var entry in turmasSelecionadas.entries) {
       String outraSalaId = entry.key;
-      Turma? turmaNoPeriodo = entry.value[periodo];
-      if (outraSalaId != slotId && turmaNoPeriodo != null && turmaNoPeriodo.id == turma.id) {
+      if (outraSalaId == slotId) continue;
+
+      Turma? outraTurma = entry.value[periodo] as Turma?;
+      int? outroSemestre = periodo == 'primeiroHorario'
+          ? entry.value['primeiroSemestre']
+          : entry.value['segundoSemestre'];
+
+      if (outraTurma != null &&
+          outraTurma.nomeDoCurso == turmaSelecionada.nomeDoCurso &&
+          outroSemestre != null &&
+          semestreSelecionado != null &&
+          outroSemestre == semestreSelecionado) {
         return true;
       }
     }
     return false;
   }
 
-  List<int> getSemestresDisponiveis(Turma turma) {
-    // Retorna lista de semestres únicos para o curso da turma
-    final semestres = turmas
-        .where((t) => t.nomeDoCurso == turma.nomeDoCurso)
+  List<Turma> getCursosUnicos() {
+    final Map<String, Turma> unicos = {};
+    for (var turma in turmas) {
+      if (!unicos.containsKey(turma.nomeDoCurso)) {
+        unicos[turma.nomeDoCurso] = turma;
+      }
+    }
+    return unicos.values.toList();
+  }
+
+  List<int> getSemestresDisponiveis(String slotId, String periodo, Turma turma) {
+    final curso = turma.nomeDoCurso;
+    final todosSemestres = turmas
+        .where((t) => t.nomeDoCurso == curso)
         .map((t) => t.semestre)
-        .toSet()
-        .toList();
-    semestres.sort();
-    return semestres;
+        .toSet();
+
+    final semestresUsados = turmasSelecionadas.entries
+        .where((e) => e.key != slotId)
+        .map((e) {
+          final outraTurma = e.value[periodo] as Turma?;
+          final outroSemestre = periodo == 'primeiroHorario'
+              ? e.value['primeiroSemestre']
+              : e.value['segundoSemestre'];
+          return (outraTurma?.nomeDoCurso == curso) ? outroSemestre : null;
+        })
+        .whereType<int>()
+        .toSet();
+
+    final disponiveis = todosSemestres.difference(semestresUsados).toList();
+    disponiveis.sort();
+    return disponiveis;
+  }
+
+  void adicionarNovaSala() {
+    setState(() {
+      cardCounter++;
+      turmasSelecionadas['-${cardCounter}'] = {
+        'sala': null,
+        'primeiroHorario': null,
+        'primeiroSemestre': null,
+        'segundoHorario': null,
+        'segundoSemestre': null,
+      };
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ensalamento'),
+      appBar: AppBar(title: const Text('Ensalamento')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: adicionarNovaSala,
+        child: const Icon(Icons.add),
       ),
       body: loadingTurmas || loadingSalas
           ? const Center(child: CircularProgressIndicator())
@@ -149,7 +198,6 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                   Map<String, dynamic> dados = entry.value;
 
                   Sala? salaAtual = dados['sala'] as Sala?;
-
                   List<String> salasSelecionadasIds = turmasSelecionadas.entries
                       .where((e) => e.key != slotId)
                       .map((e) => (e.value['sala'] as Sala?)?.id)
@@ -194,7 +242,7 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                               isExpanded: true,
                               value: primeiroHorario,
                               hint: const Text('Selecione uma turma'),
-                              items: turmas.map((turma) {
+                              items: getCursosUnicos().map((turma) {
                                 return DropdownMenuItem<Turma>(
                                   value: turma,
                                   child: Text(turma.nomeDoCurso),
@@ -202,19 +250,10 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                               }).toList(),
                               onChanged: (novaTurma) {
                                 if (novaTurma == null) return;
-                                if (turmaJaLancada(slotId, 'primeiroHorario', novaTurma)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Turma já foi lançada neste período'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                } else {
-                                  setState(() {
-                                    dados['primeiroHorario'] = novaTurma;
-                                    dados['primeiroSemestre'] = null; // reset semestre ao trocar turma
-                                  });
-                                }
+                                setState(() {
+                                  dados['primeiroHorario'] = novaTurma;
+                                  dados['primeiroSemestre'] = null;
+                                });
                               },
                             ),
                             if (primeiroHorario != null) ...[
@@ -224,16 +263,26 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                                 isExpanded: true,
                                 value: primeiroSemestre,
                                 hint: const Text('Selecione o semestre'),
-                                items: getSemestresDisponiveis(primeiroHorario).map((sem) {
+                                items: getSemestresDisponiveis(slotId, 'primeiroHorario', primeiroHorario)
+                                    .map((sem) {
                                   return DropdownMenuItem<int>(
                                     value: sem,
                                     child: Text(sem.toString()),
                                   );
                                 }).toList(),
                                 onChanged: (semestre) {
-                                  setState(() {
-                                    dados['primeiroSemestre'] = semestre;
-                                  });
+                                  if (turmaJaLancada(slotId, 'primeiroHorario', primeiroHorario, semestre)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Esse semestre já está sendo usado por outra sala nesse horário'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } else {
+                                    setState(() {
+                                      dados['primeiroSemestre'] = semestre;
+                                    });
+                                  }
                                 },
                               ),
                             ],
@@ -243,7 +292,7 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                               isExpanded: true,
                               value: segundoHorario,
                               hint: const Text('Selecione uma turma'),
-                              items: turmas.map((turma) {
+                              items: getCursosUnicos().map((turma) {
                                 return DropdownMenuItem<Turma>(
                                   value: turma,
                                   child: Text(turma.nomeDoCurso),
@@ -251,19 +300,10 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                               }).toList(),
                               onChanged: (novaTurma) {
                                 if (novaTurma == null) return;
-                                if (turmaJaLancada(slotId, 'segundoHorario', novaTurma)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Turma já foi lançada neste período'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                } else {
-                                  setState(() {
-                                    dados['segundoHorario'] = novaTurma;
-                                    dados['segundoSemestre'] = null; // reset semestre ao trocar turma
-                                  });
-                                }
+                                setState(() {
+                                  dados['segundoHorario'] = novaTurma;
+                                  dados['segundoSemestre'] = null;
+                                });
                               },
                             ),
                             if (segundoHorario != null) ...[
@@ -273,16 +313,26 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                                 isExpanded: true,
                                 value: segundoSemestre,
                                 hint: const Text('Selecione o semestre'),
-                                items: getSemestresDisponiveis(segundoHorario).map((sem) {
+                                items: getSemestresDisponiveis(slotId, 'segundoHorario', segundoHorario)
+                                    .map((sem) {
                                   return DropdownMenuItem<int>(
                                     value: sem,
                                     child: Text(sem.toString()),
                                   );
                                 }).toList(),
                                 onChanged: (semestre) {
-                                  setState(() {
-                                    dados['segundoSemestre'] = semestre;
-                                  });
+                                  if (turmaJaLancada(slotId, 'segundoHorario', segundoHorario, semestre)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Esse semestre já está sendo usado por outra sala nesse horário'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } else {
+                                    setState(() {
+                                      dados['segundoSemestre'] = semestre;
+                                    });
+                                  }
                                 },
                               ),
                             ],
