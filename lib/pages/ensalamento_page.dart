@@ -3,13 +3,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ensalamento.dart';
 import '../repositories/ensalamento_repository.dart';
 
+// DEFINIÇÃO PRINCIPAL DO WIDGET
 class EnsalamentoPage extends StatefulWidget {
-  const EnsalamentoPage({Key? key}) : super(key: key);
+  const EnsalamentoPage({super.key});
 
   @override
   State<EnsalamentoPage> createState() => _EnsalamentoPageState();
 }
 
+// STATE COMPLETO
 class _EnsalamentoPageState extends State<EnsalamentoPage> {
   final SupabaseClient _client = Supabase.instance.client;
   late EnsalamentoRepository _repository;
@@ -32,17 +34,35 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
   void initState() {
     super.initState();
     _repository = EnsalamentoRepository(_client);
-    _carregarEnsalamentos();
     _carregarSalasETurmas();
+    _carregarEnsalamentos();
+    _ouvirAlteracoesEmTempoReal();
   }
 
-Future<void> _carregarEnsalamentos() async {
-  final lista = await _repository.listarTodos();
-  print('Ensamentos carregados: ${lista.length}');
-  setState(() {
-    _ensalamentos = lista;
-  });
-}
+  Future<void> _carregarEnsalamentos() async {
+    final response = await _client.from('ensalamentos').select().order('created_at').execute();
+    if (response.status == 200) {
+      setState(() {
+        _ensalamentos = (response.data as List)
+            .map((e) => Ensalamento.fromMap(e))
+            .toList();
+      });
+    }
+  }
+
+  void _ouvirAlteracoesEmTempoReal() {
+    _client
+        .channel('public:ensalamentos')
+        .on(
+          RealtimeListenTypes.postgresChanges,
+          ChannelFilter(event: '*', schema: 'public', table: 'ensalamentos'),
+          (payload, [ref]) {
+            debugPrint('Alteração detectada: $payload');
+            _carregarEnsalamentos();
+          },
+        )
+        .subscribe();
+  }
 
   Future<void> _carregarSalasETurmas() async {
     final salasResponse = await _client.from('salas').select().execute();
@@ -82,7 +102,6 @@ Future<void> _carregarEnsalamentos() async {
     }
 
     _limparFormulario();
-    await _carregarEnsalamentos();
   }
 
   void _limparFormulario() {
@@ -110,233 +129,245 @@ Future<void> _carregarEnsalamentos() async {
 
   Future<void> _excluir(String id) async {
     await _repository.excluir(id);
-    await _carregarEnsalamentos();
   }
 
-@override
-Widget _buildDropdown<T>({
-  required String label,
-  required T? value,
-  required List<DropdownMenuItem<T>> items,
-  required void Function(T?) onChanged,
-  FormFieldValidator<T>? validator,
-}) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: DropdownButtonFormField<T>(
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildDropdown<T>({
+    required String label,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required void Function(T?) onChanged,
+    FormFieldValidator<T>? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<T>(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
+        value: value,
+        items: items,
+        onChanged: onChanged,
+        validator: validator,
       ),
-      value: value,
-      items: items,
-      onChanged: onChanged,
-      validator: validator,
-    ),
-  );
-}
+    );
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final diasDaSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 
-Widget build(BuildContext context) {
-  final diasDaSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
-
-  return Scaffold(
-  body: SingleChildScrollView(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Título posicionado manualmente
-        Text(
-            'Cadastro de Ensalamentos:',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        const SizedBox(height: 8), // Espaçamento mais próximo do formulário
-        Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  _buildDropdown<String>(
-                    label: 'Sala',
-                    value: _selectedSalaId,
-                    items: _salas.map((sala) => DropdownMenuItem<String>(
-                      value: sala['id'] as String,
-                      child: Text(sala['nome'] as String),
-                    )).toList(),
-                    onChanged: (val) => setState(() => _selectedSalaId = val),
-                    validator: (val) => val == null ? 'Selecione uma sala' : null,
-                  ),
-                  _buildDropdown<String>(
-                    label: 'Dia da semana',
-                    value: _diaSemana,
-                    items: diasDaSemana.map((d) => DropdownMenuItem(
-                      value: d.toLowerCase(),
-                      child: Text(d),
-                    )).toList(),
-                    onChanged: (val) => setState(() => _diaSemana = val),
-                    validator: (val) => val == null ? 'Escolha um dia da semana' : null,
-                  ),
-                  _buildDropdown<String>(
-                    label: 'Primeiro curso',
-                    value: _primeiroCursoId,
-                    items: _turmas.map((turma) {
-                      final nomeCurso = turma['nomeDoCurso'] ?? 'Sem nome';
-                      final semestre = turma['semestre']?.toString() ?? '';
-                      return DropdownMenuItem<String>(
-                        value: turma['id'] as String,
-                        child: Text('$nomeCurso - Semestre $semestre'),
-                      );
-                    }).toList(),
-                    onChanged: (val) => setState(() => _primeiroCursoId = val),
-                  ),
-
-                    _buildDropdown<String>(
-                      label: 'Segundo curso',
-                      value: _segundoCursoId,
-                      items: _turmas.map((turma) {
-                        final nomeCurso = turma['nomeDoCurso'] ?? 'Sem nome';
-                        final semestre = turma['semestre']?.toString() ?? '';
-                        return DropdownMenuItem<String>(
-                          value: turma['id'] as String,
-                          child: Text('$nomeCurso - Semestre $semestre'),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _segundoCursoId = val),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: Icon(_isEditando ? Icons.save : Icons.add),
-                            label: Text(_isEditando ? 'Atualizar' : 'Criar'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _salvar,
-                          ),
-                        ),
-                        if (_isEditando) ...[
-                          const SizedBox(width: 12),
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cadastro de Ensalamentos:',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      _buildDropdown<String>(
+                        label: 'Sala',
+                        value: _selectedSalaId,
+                        items: _salas.map((sala) {
+                          return DropdownMenuItem<String>(
+                            value: sala['id'] as String,
+                            child: Text(sala['nome'] as String),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setState(() => _selectedSalaId = val),
+                        validator: (val) =>
+                            val == null ? 'Selecione uma sala' : null,
+                      ),
+                      _buildDropdown<String>(
+                        label: 'Dia da semana',
+                        value: _diaSemana,
+                        items: diasDaSemana.map((d) {
+                          return DropdownMenuItem(
+                            value: d.toLowerCase(),
+                            child: Text(d),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setState(() => _diaSemana = val),
+                        validator: (val) =>
+                            val == null ? 'Escolha um dia da semana' : null,
+                      ),
+                      _buildDropdown<String>(
+                        label: 'Primeiro curso',
+                        value: _primeiroCursoId,
+                        items: _turmas.map((turma) {
+                          final nomeCurso = turma['nomeDoCurso'] ?? 'Sem nome';
+                          final semestre =
+                              turma['semestre']?.toString() ?? '';
+                          return DropdownMenuItem<String>(
+                            value: turma['id'] as String,
+                            child: Text('$nomeCurso - Semestre $semestre'),
+                          );
+                        }).toList(),
+                        onChanged: (val) =>
+                            setState(() => _primeiroCursoId = val),
+                      ),
+                      _buildDropdown<String>(
+                        label: 'Segundo curso',
+                        value: _segundoCursoId,
+                        items: _turmas.map((turma) {
+                          final nomeCurso = turma['nomeDoCurso'] ?? 'Sem nome';
+                          final semestre =
+                              turma['semestre']?.toString() ?? '';
+                          return DropdownMenuItem<String>(
+                            value: turma['id'] as String,
+                            child: Text('$nomeCurso - Semestre $semestre'),
+                          );
+                        }).toList(),
+                        onChanged: (val) =>
+                            setState(() => _segundoCursoId = val),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
                           Expanded(
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.cancel),
-                              label: const Text('Cancelar edição'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: ElevatedButton.icon(
+                              icon: Icon(
+                                  _isEditando ? Icons.save : Icons.add),
+                              label:
+                                  Text(_isEditando ? 'Atualizar' : 'Criar'),
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              onPressed: _limparFormulario,
+                              onPressed: _salvar,
                             ),
                           ),
+                          if (_isEditando) ...[
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.cancel),
+                                label: const Text('Cancelar edição'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: _limparFormulario,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 20),
-          Text(
-            'Ensalamentos cadastrados:',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-          _ensalamentos.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    'Nenhum ensalamento cadastrado.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 20),
+            Text(
+              'Ensalamentos cadastrados:',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            _ensalamentos.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      'Nenhum ensalamento cadastrado.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
                     ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _ensalamentos.length,
+                    itemBuilder: (context, index) {
+                      final e = _ensalamentos[index];
+
+                      final salaNome = _salas.firstWhere(
+                        (s) => s['id'] == e.salaId,
+                        orElse: () => {'nome': e.salaId},
+                      )['nome'];
+
+                      final primeiroCurso = e.primeiroCursoId != null
+                          ? _turmas.firstWhere(
+                              (t) => t['id'] == e.primeiroCursoId,
+                              orElse: () =>
+                                  {'nomeDoCurso': e.primeiroCursoId, 'semestre': ''}
+                            )
+                          : null;
+
+                      final segundoCurso = e.segundoCursoId != null
+                          ? _turmas.firstWhere(
+                              (t) => t['id'] == e.segundoCursoId,
+                              orElse: () =>
+                                  {'nomeDoCurso': e.segundoCursoId, 'semestre': ''}
+                            )
+                          : null;
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 3,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 16),
+                          title: Text(
+                            '${e.diaDaSemana[0].toUpperCase()}${e.diaDaSemana.substring(1)} - Sala $salaNome',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '1º Curso: ${primeiroCurso?['nomeDoCurso']} - Semestre ${primeiroCurso?['semestre']}\n'
+                            '2º Curso: ${segundoCurso?['nomeDoCurso']} - Semestre ${segundoCurso?['semestre']}',
+                          ),
+                          isThreeLine: true,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.indigo),
+                                tooltip: 'Editar',
+                                onPressed: () => _carregarParaEdicao(e),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Colors.redAccent),
+                                tooltip: 'Excluir',
+                                onPressed: () => _excluir(e.id),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _ensalamentos.length,
-                  itemBuilder: (context, index) {
-                    final e = _ensalamentos[index];
-
-                    final salaNome = _salas.firstWhere(
-                      (s) => s['id'] == e.salaId,
-                      orElse: () => {'nome': e.salaId},
-                    )['nome'];
-
-                    final primeiroCurso = e.primeiroCursoId != null
-                        ? _turmas.firstWhere(
-                            (t) => t['id'] == e.primeiroCursoId,
-                            orElse: () => {'nomeDoCurso': e.primeiroCursoId, 'semestre': ''}
-                          )
-                        : null;
-
-                    final segundoCurso = e.segundoCursoId != null
-                        ? _turmas.firstWhere(
-                            (t) => t['id'] == e.segundoCursoId,
-                            orElse: () => {'nomeDoCurso': e.segundoCursoId, 'semestre': ''}
-                          )
-                        : null;
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 3,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 16),
-                        title: Text(
-                          '${e.diaDaSemana[0].toUpperCase()}${e.diaDaSemana.substring(1)} - Sala $salaNome',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          '1º Curso: ${primeiroCurso?['nomeDoCurso']} - Semestre ${primeiroCurso?['semestre']}\n'
-                          '2º Curso: ${segundoCurso?['nomeDoCurso']} - Semestre ${segundoCurso?['semestre']}',
-                        ),
-                        isThreeLine: true,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.indigo),
-                              tooltip: 'Editar',
-                              onPressed: () => _carregarParaEdicao(e),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                              tooltip: 'Excluir',
-                              onPressed: () => _excluir(e.id),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 }
