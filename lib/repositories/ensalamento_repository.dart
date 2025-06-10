@@ -12,8 +12,9 @@ class EnsalamentoRepository {
         .from('ensalamentos')
         .insert(ensalamento.toMap());
 
-    if (response.error != null) {
-      throw Exception(response.error!.message);
+    // Verifica se houve erro pelo status ou lança exceção genérica
+    if (response == null || (response is PostgrestResponse && response.status != 201)) {
+      throw Exception('Erro ao criar ensalamento: ${response?.toString() ?? 'Resposta nula'}');
     }
   }
 
@@ -24,8 +25,8 @@ class EnsalamentoRepository {
         .update(updates)
         .eq('id', id);
 
-    if (response.error != null) {
-      throw Exception(response.error!.message);
+    if (response == null || (response is PostgrestResponse && response.status != 204)) {
+      throw Exception('Erro ao editar ensalamento: ${response?.toString() ?? 'Resposta nula'}');
     }
   }
 

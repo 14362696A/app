@@ -16,11 +16,78 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
   final SupabaseClient _client = Supabase.instance.client;
   late EnsalamentoRepository _repository;
 
+  final ScrollController _scrollController = ScrollController();
+
   List<Ensalamento> _ensalamentos = [];
   final _formKey = GlobalKey<FormState>();
 
   List<Map<String, dynamic>> _salas = [];
   List<Map<String, dynamic>> _turmas = [];
+
+  // Filtros para seleção sequencial
+  String? _cursoFiltro;
+  String? _semestreFiltro;
+  String? _turnoFiltro;
+
+  // Filtros individuais para cada curso
+  String? _primeiroCursoNome;
+  String? _primeiroCursoSemestre;
+  String? _primeiroCursoTurno;
+  String? _segundoCursoNome;
+  String? _segundoCursoSemestre;
+  String? _segundoCursoTurno;
+
+  // Novos filtros
+  String? _blocoFiltro;
+
+  List<String> _getNomesCursos() {
+    final cursos = _turmas.map((t) => (t['nomeDoCurso'] ?? '').toString()).toSet().toList();
+    cursos.removeWhere((s) => s.isEmpty);
+    cursos.sort();
+    return cursos;
+  }
+
+  List<String> _getSemestres(String? nomeCurso) {
+    if (nomeCurso == null) return [];
+    final semestres = _turmas
+        .where((t) => t['nomeDoCurso'] == nomeCurso)
+        .map((t) => (t['semestre'] ?? '').toString())
+        .toSet()
+        .toList();
+    semestres.removeWhere((s) => s.isEmpty);
+    semestres.sort((a, b) => int.tryParse(a)?.compareTo(int.tryParse(b) ?? 0) ?? 0);
+    return semestres;
+  }
+
+  List<String> _getTurnos(String? nomeCurso, String? semestre) {
+    if (nomeCurso == null || semestre == null) return [];
+    final turnos = _turmas
+        .where((t) => t['nomeDoCurso'] == nomeCurso && (t['semestre']?.toString() ?? '') == semestre)
+        .map((t) => (t['turno'] ?? '').toString())
+        .toSet()
+        .toList();
+    turnos.removeWhere((s) => s.isEmpty);
+    turnos.sort();
+    return turnos;
+  }
+
+  List<Map<String, dynamic>> get turmasFiltradas {
+    if (_cursoFiltro == null || _semestreFiltro == null || _turnoFiltro == null) return [];
+    return _turmas.where((t) =>
+      t['nomeDoCurso'] == _cursoFiltro &&
+      (t['semestre']?.toString() ?? '') == _semestreFiltro &&
+      (t['turno'] ?? '').toString() == _turnoFiltro
+    ).toList();
+  }
+
+  List<Map<String, dynamic>> _getTurmasFiltradas(String? nomeCurso, String? semestre, String? turno) {
+    if (nomeCurso == null || semestre == null || turno == null) return [];
+    return _turmas.where((t) =>
+      t['nomeDoCurso'] == nomeCurso &&
+      (t['semestre']?.toString() ?? '') == semestre &&
+      (t['turno'] ?? '').toString() == turno
+    ).toList();
+  }
 
   String? _selectedSalaId;
   String? _diaSemana;
@@ -52,16 +119,12 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
 
   void _ouvirAlteracoesEmTempoReal() {
     _client
-        .channel('public:ensalamentos')
-        .on(
-          RealtimeListenTypes.postgresChanges,
-          ChannelFilter(event: '*', schema: 'public', table: 'ensalamentos'),
-          (payload, [ref]) {
-            debugPrint('Alteração detectada: $payload');
-            _carregarEnsalamentos();
-          },
-        )
-        .subscribe();
+        .from('ensalamentos')
+        .stream(primaryKey: ['id'])
+        .listen((data) {
+          debugPrint('Alteração detectada: $data');
+          _carregarEnsalamentos();
+        });
   }
 
   Future<void> _carregarSalasETurmas() async {
@@ -117,6 +180,20 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
   }
 
   void _carregarParaEdicao(Ensalamento ensalamento) {
+    Map<String, dynamic>? turma1;
+    Map<String, dynamic>? turma2;
+    try {
+      final t1 = _turmas.firstWhere((t) => t['id'] == ensalamento.primeiroCursoId);
+      turma1 = t1;
+    } catch (_) {
+      turma1 = null;
+    }
+    try {
+      final t2 = _turmas.firstWhere((t) => t['id'] == ensalamento.segundoCursoId);
+      turma2 = t2;
+    } catch (_) {
+      turma2 = null;
+    }
     setState(() {
       _isEditando = true;
       _editandoId = ensalamento.id;
@@ -124,6 +201,19 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
       _diaSemana = ensalamento.diaDaSemana;
       _primeiroCursoId = ensalamento.primeiroCursoId;
       _segundoCursoId = ensalamento.segundoCursoId;
+      _primeiroCursoNome = turma1 != null ? turma1['nomeDoCurso'] as String : null;
+      _primeiroCursoSemestre = turma1 != null ? turma1['semestre']?.toString() : null;
+      _primeiroCursoTurno = turma1 != null ? turma1['turno']?.toString() : null;
+      _segundoCursoNome = turma2 != null ? turma2['nomeDoCurso'] as String : null;
+      _segundoCursoSemestre = turma2 != null ? turma2['semestre']?.toString() : null;
+      _segundoCursoTurno = turma2 != null ? turma2['turno']?.toString() : null;
+    });
+    Future.delayed(Duration(milliseconds: 200), () {
+      _scrollController.animateTo(
+        0,
+        duration: Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     });
   }
 
@@ -161,6 +251,7 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
 
     return Scaffold(
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,6 +272,122 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                   key: _formKey,
                   child: Column(
                     children: [
+                      // Seletor do PRIMEIRO CURSO
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 4),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _primeiroCursoNome,
+                              decoration: const InputDecoration(labelText: 'Nome do Curso', border: OutlineInputBorder()),
+                              items: _getNomesCursos().map((nome) => DropdownMenuItem(value: nome, child: Text(nome))).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _primeiroCursoNome = val;
+                                  _primeiroCursoSemestre = null;
+                                  _primeiroCursoTurno = null;
+                                  _primeiroCursoId = null;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _primeiroCursoSemestre,
+                              decoration: const InputDecoration(labelText: 'Semestre', border: OutlineInputBorder()),
+                              items: _getSemestres(_primeiroCursoNome).map((sem) => DropdownMenuItem(value: sem, child: Text(sem))).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _primeiroCursoSemestre = val;
+                                  _primeiroCursoTurno = null;
+                                  _primeiroCursoId = null;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _primeiroCursoTurno,
+                              decoration: const InputDecoration(labelText: 'Turno', border: OutlineInputBorder()),
+                              items: _getTurnos(_primeiroCursoNome, _primeiroCursoSemestre).map((turno) => DropdownMenuItem(value: turno, child: Text(turno))).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _primeiroCursoTurno = val;
+                                  // Atualiza o id do curso selecionado
+                                  final turmas = _getTurmasFiltradas(_primeiroCursoNome, _primeiroCursoSemestre, _primeiroCursoTurno);
+                                  _primeiroCursoId = turmas.isNotEmpty ? turmas.first['id'] as String : null;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Seletor do SEGUNDO CURSO
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 4),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _segundoCursoNome,
+                              decoration: const InputDecoration(labelText: 'Nome do Curso', border: OutlineInputBorder()),
+                              items: _getNomesCursos().map((nome) => DropdownMenuItem(value: nome, child: Text(nome))).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _segundoCursoNome = val;
+                                  _segundoCursoSemestre = null;
+                                  _segundoCursoTurno = null;
+                                  _segundoCursoId = null;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _segundoCursoSemestre,
+                              decoration: const InputDecoration(labelText: 'Semestre', border: OutlineInputBorder()),
+                              items: _getSemestres(_segundoCursoNome).map((sem) => DropdownMenuItem(value: sem, child: Text(sem))).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _segundoCursoSemestre = val;
+                                  _segundoCursoTurno = null;
+                                  _segundoCursoId = null;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _segundoCursoTurno,
+                              decoration: const InputDecoration(labelText: 'Turno', border: OutlineInputBorder()),
+                              items: _getTurnos(_segundoCursoNome, _segundoCursoSemestre).map((turno) => DropdownMenuItem(value: turno, child: Text(turno))).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _segundoCursoTurno = val;
+                                  final turmas = _getTurmasFiltradas(_segundoCursoNome, _segundoCursoSemestre, _segundoCursoTurno);
+                                  _segundoCursoId = turmas.isNotEmpty ? turmas.first['id'] as String : null;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Campo: Sala
                       _buildDropdown<String>(
                         label: 'Sala',
                         value: _selectedSalaId,
@@ -194,6 +401,7 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                         validator: (val) =>
                             val == null ? 'Selecione uma sala' : null,
                       ),
+                      // Campo: Dia da semana
                       _buildDropdown<String>(
                         label: 'Dia da semana',
                         value: _diaSemana,
@@ -206,36 +414,6 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                         onChanged: (val) => setState(() => _diaSemana = val),
                         validator: (val) =>
                             val == null ? 'Escolha um dia da semana' : null,
-                      ),
-                      _buildDropdown<String>(
-                        label: 'Primeiro curso',
-                        value: _primeiroCursoId,
-                        items: _turmas.map((turma) {
-                          final nomeCurso = turma['nomeDoCurso'] ?? 'Sem nome';
-                          final semestre =
-                              turma['semestre']?.toString() ?? '';
-                          return DropdownMenuItem<String>(
-                            value: turma['id'] as String,
-                            child: Text('$nomeCurso - Semestre $semestre'),
-                          );
-                        }).toList(),
-                        onChanged: (val) =>
-                            setState(() => _primeiroCursoId = val),
-                      ),
-                      _buildDropdown<String>(
-                        label: 'Segundo curso',
-                        value: _segundoCursoId,
-                        items: _turmas.map((turma) {
-                          final nomeCurso = turma['nomeDoCurso'] ?? 'Sem nome';
-                          final semestre =
-                              turma['semestre']?.toString() ?? '';
-                          return DropdownMenuItem<String>(
-                            value: turma['id'] as String,
-                            child: Text('$nomeCurso - Semestre $semestre'),
-                          );
-                        }).toList(),
-                        onChanged: (val) =>
-                            setState(() => _segundoCursoId = val),
                       ),
                       const SizedBox(height: 24),
                       Row(
@@ -281,15 +459,81 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
               ),
             ),
             const SizedBox(height: 32),
-            const Divider(),
+            // Filtros para a lista de ensalamentos
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    // Filtro por Bloco (com opção de não filtrar)
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _blocoFiltro,
+                        decoration: const InputDecoration(labelText: 'Bloco', border: OutlineInputBorder()),
+                        items: [
+                          const DropdownMenuItem<String>(value: null, child: Text('Todos os Blocos')),
+                          ..._salas.map((sala) => sala['bloco']?.toString() ?? '').toSet().where((b) => b.isNotEmpty).map((bloco) => DropdownMenuItem(value: bloco, child: Text(bloco))).toList(),
+                        ],
+                        onChanged: (val) {
+                          setState(() {
+                            _blocoFiltro = val;
+                          });
+                        },
+                        isExpanded: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Filtro por Turno
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _turnoFiltro,
+                        decoration: const InputDecoration(labelText: 'Turno', border: OutlineInputBorder()),
+                        items: _turmas.map((t) => (t['turno'] ?? '').toString()).toSet().where((t) => t.isNotEmpty).map((turno) => DropdownMenuItem(value: turno, child: Text(turno))).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _turnoFiltro = val;
+                          });
+                        },
+                        isExpanded: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             Text(
               'Ensalamentos cadastrados:',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            _ensalamentos.isEmpty
-                ? Padding(
+            Builder(
+              builder: (context) {
+                final ensalamentosFiltrados = _ensalamentos.where((e) {
+                  // Filtro por bloco
+                  final sala = _salas.firstWhere(
+                    (s) => s['id'] == e.salaId,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  final blocoOk = _blocoFiltro == null || (_blocoFiltro?.isEmpty ?? true) || (sala['bloco']?.toString() == _blocoFiltro);
+                  // Filtro por turno (primeiro ou segundo curso)
+                  final turma1 = e.primeiroCursoId != null ? _turmas.firstWhere(
+                    (t) => t['id'] == e.primeiroCursoId,
+                    orElse: () => <String, dynamic>{},
+                  ) : null;
+                  final turma2 = e.segundoCursoId != null ? _turmas.firstWhere(
+                    (t) => t['id'] == e.segundoCursoId,
+                    orElse: () => <String, dynamic>{},
+                  ) : null;
+                  final turnoOk = _turnoFiltro == null || (_turnoFiltro?.isEmpty ?? true) ||
+                    (turma1 != null && turma1['turno'] == _turnoFiltro) ||
+                    (turma2 != null && turma2['turno'] == _turnoFiltro);
+                  return blocoOk && turnoOk;
+                }).toList();
+                if (ensalamentosFiltrados.isEmpty) {
+                  return Padding(
                     padding: const EdgeInsets.only(top: 16),
                     child: Text(
                       'Nenhum ensalamento cadastrado.',
@@ -298,73 +542,82 @@ class _EnsalamentoPageState extends State<EnsalamentoPage> {
                         color: Colors.grey[600],
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _ensalamentos.length,
-                    itemBuilder: (context, index) {
-                      final e = _ensalamentos[index];
-
-                      final salaNome = _salas.firstWhere(
-                        (s) => s['id'] == e.salaId,
-                        orElse: () => {'nome': e.salaId},
-                      )['nome'];
-
-                      final primeiroCurso = e.primeiroCursoId != null
-                          ? _turmas.firstWhere(
-                              (t) => t['id'] == e.primeiroCursoId,
-                              orElse: () =>
-                                  {'nomeDoCurso': e.primeiroCursoId, 'semestre': ''}
-                            )
-                          : null;
-
-                      final segundoCurso = e.segundoCursoId != null
-                          ? _turmas.firstWhere(
-                              (t) => t['id'] == e.segundoCursoId,
-                              orElse: () =>
-                                  {'nomeDoCurso': e.segundoCursoId, 'semestre': ''}
-                            )
-                          : null;
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: ensalamentosFiltrados.length,
+                  itemBuilder: (context, index) {
+                    final e = ensalamentosFiltrados[index];
+                    final salaNome = _salas.firstWhere(
+                      (s) => s['id'] == e.salaId,
+                      orElse: () => {'nome': e.salaId},
+                    )['nome'];
+                    final primeiroCurso = e.primeiroCursoId != null
+                        ? _turmas.firstWhere(
+                            (t) => t['id'] == e.primeiroCursoId,
+                            orElse: () => {'nomeDoCurso': 'Não encontrado', 'semestre': '', 'turno': ''},
+                          )
+                        : null;
+                    final segundoCurso = e.segundoCursoId != null
+                        ? _turmas.firstWhere(
+                            (t) => t['id'] == e.segundoCursoId,
+                            orElse: () => {'nomeDoCurso': 'Não encontrado', 'semestre': '', 'turno': ''},
+                          )
+                        : null;
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 3,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 16),
+                        title: Text(
+                          '${e.diaDaSemana[0].toUpperCase()}${e.diaDaSemana.substring(1)} - Sala $salaNome',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        elevation: 3,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 8, horizontal: 16),
-                          title: Text(
-                            '${e.diaDaSemana[0].toUpperCase()}${e.diaDaSemana.substring(1)} - Sala $salaNome',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            '1º Curso: ${primeiroCurso?['nomeDoCurso']} - Semestre ${primeiroCurso?['semestre']}\n'
-                            '2º Curso: ${segundoCurso?['nomeDoCurso']} - Semestre ${segundoCurso?['semestre']}',
-                          ),
-                          isThreeLine: true,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.indigo),
-                                tooltip: 'Editar',
-                                onPressed: () => _carregarParaEdicao(e),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.redAccent),
-                                tooltip: 'Excluir',
-                                onPressed: () => _excluir(e.id),
-                              ),
-                            ],
-                          ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '1º  ${primeiroCurso?['nomeDoCurso'] ?? 'Não encontrado'}\n'
+                              '   Semestre: ${primeiroCurso?['semestre'] ?? '-'} | Turno: ${primeiroCurso?['turno'] ?? '-'}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '2º  ${segundoCurso?['nomeDoCurso'] ?? 'Não encontrado'}\n'
+                              '   Semestre: ${segundoCurso?['semestre'] ?? '-'} | Turno: ${segundoCurso?['turno'] ?? '-'}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                        isThreeLine: true,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.indigo),
+                              tooltip: 'Editar',
+                              onPressed: () => _carregarParaEdicao(e),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  color: Colors.redAccent),
+                              tooltip: 'Excluir',
+                              onPressed: () => _excluir(e.id),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ],
         ),
       ),
